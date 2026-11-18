@@ -1,0 +1,1812 @@
+<!DOCTYPE html>
+<html lang="vi" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32 CodeLab - Tư Duy Lập Trình C/C++ (PlatformIO)</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome cho icon trực quan -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts: Inter & JetBrains Mono cho code -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    },
+                    colors: {
+                        vscode: {
+                            bg: '#1e1e1e',
+                            sidebar: '#252526',
+                            active: '#37373d',
+                            border: '#333333',
+                            accent: '#007acc',
+                            text: '#d4d4d4',
+                            comment: '#6a9955',
+                            keyword: '#569cd6',
+                            control: '#c586c0',
+                            string: '#ce9178',
+                            number: '#b5cea8',
+                            func: '#dcdcaa',
+                            type: '#4ec9b0'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Tùy chỉnh thanh cuộn phong cách VS Code */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: #1e1e1e; }
+        ::-webkit-scrollbar-thumb { background: #424242; border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: #4f4f4f; }
+
+        /* Highlight cú pháp C++ tùy chỉnh */
+        .cpp-kw { color: #569cd6; font-weight: 500; }      /* void, int, bool, include */
+        .cpp-ctrl { color: #c586c0; font-weight: 500; }    /* if, else, for, return */
+        .cpp-func { color: #dcdcaa; }                      /* setup, loop, pinMode, digitalWrite */
+        .cpp-type { color: #4ec9b0; }                      /* Servo, String */
+        .cpp-num { color: #b5cea8; }                       /* 0, 180, 1000, HIGH, LOW */
+        .cpp-str { color: #ce9178; }                       /* <Arduino.h>, "Hello" */
+        .cpp-cmt { color: #6a9955; font-style: italic; }   /* // comment */
+
+        /* Ô điền khuyết trong code */
+        .code-blank-input {
+            background-color: #2d2d30;
+            border: 1.5px solid #007acc;
+            color: #4ec9b0;
+            font-family: 'JetBrains Mono', monospace;
+            padding: 2px 8px;
+            border-radius: 4px;
+            outline: none;
+            transition: all 0.2s;
+            font-size: 0.9rem;
+        }
+        .code-blank-input:focus {
+            border-color: #38bdf8;
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.3);
+            background-color: #1e1e1e;
+        }
+        .code-blank-correct {
+            border-color: #22c55e !important;
+            background-color: rgba(34, 197, 94, 0.15) !important;
+            color: #4ade80 !important;
+        }
+        .code-blank-wrong {
+            border-color: #ef4444 !important;
+            background-color: rgba(239, 68, 68, 0.15) !important;
+            color: #f87171 !important;
+        }
+
+        /* Hiệu ứng mạch điện / đèn LED mô phỏng */
+        @keyframes pulse-glow {
+            0%, 100% { box-shadow: 0 0 12px #ef4444; }
+            50% { box-shadow: 0 0 25px #ef4444, 0 0 35px #f87171; }
+        }
+        .led-glow { animation: pulse-glow 1.5s infinite; }
+
+        @media print {
+            .no-print { display: none !important; }
+            body { background: white !important; color: black !important; }
+        }
+    </style>
+</head>
+<body class="bg-vscode-bg text-vscode-text font-sans antialiased selection:bg-blue-600 selection:text-white">
+
+    <!-- Thông báo Toast (Thay thế alert) -->
+    <div id="toast-container" class="fixed bottom-5 right-5 z-50 flex flex-col gap-2 pointer-events-none"></div>
+
+    <!-- Header / Thanh công cụ trên cùng -->
+    <header class="bg-[#2d2d2d] border-b border-vscode-border h-14 px-4 flex items-center justify-between sticky top-0 z-30 no-print">
+        <div class="flex items-center gap-3">
+            <button id="mobile-menu-btn" class="lg:hidden text-gray-300 hover:text-white p-2 rounded-lg hover:bg-vscode-active">
+                <i class="fa-solid fa-bars text-lg"></i>
+            </button>
+            <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center text-white font-bold shadow-md">
+                    <i class="fa-solid fa-microchip"></i>
+                </div>
+                <div>
+                    <h1 class="font-bold text-white text-sm sm:text-base leading-tight tracking-tight">ESP32 <span class="text-cyan-400">CodeLab</span></h1>
+                    <p class="text-[11px] text-gray-400 hidden sm:block">PlatformIO & C/C++ Thinking System</p>
+                </div>
+            </div>
+        </div>
+
+        <!-- Thông tin học sinh & Nút Báo cáo -->
+        <div class="flex items-center gap-2 sm:gap-3">
+            <button onclick="openStudentModal()" class="flex items-center gap-2 bg-vscode-sidebar hover:bg-vscode-active border border-vscode-border px-3 py-1.5 rounded-lg text-xs sm:text-sm transition">
+                <i class="fa-solid fa-user-graduate text-cyan-400"></i>
+                <span id="header-student-info" class="text-gray-200 font-medium truncate max-w-[110px] sm:max-w-[180px]">Nhập tên học sinh</span>
+                <i class="fa-solid fa-pen text-[10px] text-gray-400"></i>
+            </button>
+
+            <button onclick="openReportModal()" class="flex items-center gap-2 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold px-3 sm:px-4 py-1.5 rounded-lg text-xs sm:text-sm shadow-lg shadow-emerald-900/30 transition">
+                <i class="fa-solid fa-chart-pie"></i>
+                <span>Báo cáo Năng lực</span>
+                <span id="total-progress-badge" class="bg-black/30 px-1.5 py-0.5 rounded text-[11px] font-mono">0/5</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- Layout chính: Sidebar + Nội dung -->
+    <div class="flex min-h-[calc(100vh-3.5rem)] relative">
+        
+        <!-- Overlay cho Mobile Sidebar -->
+        <div id="sidebar-overlay" onclick="toggleMobileSidebar()" class="fixed inset-0 bg-black/60 z-20 hidden lg:hidden"></div>
+
+        <!-- Sidebar trái: Lộ trình 5 bài học -->
+        <aside id="sidebar" class="w-72 sm:w-80 bg-vscode-sidebar border-r border-vscode-border flex flex-col justify-between fixed lg:sticky top-14 h-[calc(100vh-3.5rem)] z-20 transform -translate-x-full lg:translate-x-0 transition-transform duration-200 ease-in-out no-print">
+            <div class="p-4 overflow-y-auto flex-1">
+                <div class="flex items-center justify-between mb-3 px-2">
+                    <span class="text-xs font-bold uppercase tracking-wider text-gray-400">Lộ trình học tập (ESP32)</span>
+                    <span class="text-xs text-cyan-400 font-mono" id="overall-score-text">0%</span>
+                </div>
+                
+                <!-- Thanh tiến độ tổng -->
+                <div class="w-full bg-gray-700 rounded-full h-1.5 mb-5 mx-auto">
+                    <div id="overall-progress-bar" class="bg-gradient-to-r from-blue-500 to-cyan-400 h-1.5 rounded-full transition-all duration-500" style="width: 0%"></div>
+                </div>
+
+                <!-- Danh sách bài học -->
+                <nav id="lesson-nav" class="space-y-2">
+                    <!-- Render bằng JS -->
+                </nav>
+            </div>
+
+            <!-- Chân trang Sidebar: Môi trường PlatformIO & Reset -->
+            <div class="p-4 border-t border-vscode-border bg-[#202021] text-xs text-gray-400 space-y-2">
+                <div class="flex items-center gap-2 text-gray-300 font-medium">
+                    <i class="fa-brands fa-platformio text-orange-400 text-sm"></i>
+                    <span>Môi trường: VS Code + PlatformIO</span>
+                </div>
+                <p class="text-[11px] leading-relaxed text-gray-400">Board: <span class="text-gray-300 font-mono">esp32dev</span> | Framework: <span class="text-gray-300 font-mono">arduino</span></p>
+                <button onclick="confirmResetProgress()" class="w-full mt-2 py-1.5 px-3 rounded border border-red-900/50 text-red-400 hover:bg-red-950/40 transition flex items-center justify-center gap-1.5 text-[11px]">
+                    <i class="fa-solid fa-rotate-left"></i> Xóa dữ liệu làm lại từ đầu
+                </button>
+            </div>
+        </aside>
+
+        <!-- Khu vực nội dung chính -->
+        <main class="flex-1 min-w-0 p-4 sm:p-6 lg:p-8 max-w-5xl mx-auto">
+            
+            <!-- Tiêu đề bài học hiện tại -->
+            <div id="lesson-header" class="mb-6">
+                <!-- Render bằng JS -->
+            </div>
+
+            <!-- Thanh chuyển Tab: Lý thuyết vs Bài Test -->
+            <div class="flex border-b border-vscode-border mb-6 bg-vscode-sidebar rounded-t-xl p-1 gap-1 no-print">
+                <button id="tab-btn-theory" onclick="switchTab('theory')" class="flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-book-open"></i>
+                    <span>1. Lý thuyết & Sơ đồ</span>
+                </button>
+                <button id="tab-btn-test" onclick="switchTab('test')" class="flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition">
+                    <i class="fa-solid fa-laptop-code"></i>
+                    <span>2. Bài Test Tư duy</span>
+                    <span id="tab-test-badge" class="ml-1 px-2 py-0.5 text-xs rounded-full bg-blue-600/30 text-blue-300 font-mono">5 câu</span>
+                </button>
+            </div>
+
+            <!-- Nội dung Tab 1: Lý thuyết & Thực hành -->
+            <div id="content-theory" class="space-y-6">
+                <!-- Render bằng JS -->
+            </div>
+
+            <!-- Nội dung Tab 2: Bài Test Tư duy -->
+            <div id="content-test" class="hidden space-y-6">
+                <!-- Render bằng JS -->
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Modal 1: Nhập thông tin Học sinh (Họ tên, Lớp) -->
+    <div id="student-modal" class="fixed inset-0 bg-black/75 z-50 hidden items-center justify-center p-4 backdrop-blur-sm">
+        <div class="bg-vscode-sidebar border border-vscode-border rounded-2xl max-w-md w-full p-6 shadow-2xl transform transition-all">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                    <i class="fa-solid fa-id-card text-cyan-400"></i> Hồ sơ Học sinh
+                </h3>
+                <button onclick="closeStudentModal()" class="text-gray-400 hover:text-white"><i class="fa-solid fa-xmark text-lg"></i></button>
+            </div>
+            <p class="text-xs text-gray-400 mb-4">Thông tin này sẽ hiển thị trên Báo cáo Đánh giá Tư duy Lập trình để em chụp ảnh hoặc xuất PDF nộp cho giáo viên.</p>
+            <div class="space-y-4">
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">Họ và tên học sinh *</label>
+                    <input type="text" id="input-student-name" placeholder="Ví dụ: Nguyễn Minh Khôi" class="w-full bg-vscode-bg border border-vscode-border rounded-lg px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 outline-none">
+                </div>
+                <div>
+                    <label class="block text-xs font-semibold text-gray-300 mb-1">Lớp / Nhóm STEM *</label>
+                    <input type="text" id="input-student-class" placeholder="Ví dụ: 8A1 - CLB Robotics" class="w-full bg-vscode-bg border border-vscode-border rounded-lg px-3.5 py-2.5 text-sm text-white focus:border-cyan-400 outline-none">
+                </div>
+            </div>
+            <div class="mt-6 flex justify-end gap-2">
+                <button onclick="closeStudentModal()" class="px-4 py-2 rounded-lg text-sm text-gray-300 hover:bg-vscode-active">Hủy</button>
+                <button onclick="saveStudentInfo()" class="px-5 py-2 rounded-lg text-sm font-semibold bg-cyan-600 hover:bg-cyan-500 text-white shadow-lg">Lưu thông tin</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal 2: Báo cáo Đánh giá Tư duy Lập trình Tổng hợp -->
+    <div id="report-modal" class="fixed inset-0 bg-black/80 z-50 hidden items-center justify-center p-3 sm:p-5 backdrop-blur-sm overflow-y-auto">
+        <div class="bg-vscode-sidebar border border-vscode-border rounded-2xl max-w-4xl w-full p-5 sm:p-8 shadow-2xl my-auto max-h-[92vh] overflow-y-auto">
+            <!-- Header Báo cáo -->
+            <div class="flex flex-wrap items-start justify-between gap-4 border-b border-vscode-border pb-5 mb-6">
+                <div>
+                    <div class="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-cyan-950/80 border border-cyan-700/50 text-cyan-300 text-xs font-semibold mb-2">
+                        <i class="fa-solid fa-award"></i> CHỨNG NHẬN & PHÂN TÍCH TƯ DUY LẬP TRÌNH ESP32
+                    </div>
+                    <h2 class="text-xl sm:text-2xl font-extrabold text-white">Báo Cáo Đánh Giá Năng Lực Lập Trình Nhúng</h2>
+                    <div class="mt-2 flex flex-wrap gap-x-6 gap-y-1 text-sm text-gray-300">
+                        <span><i class="fa-solid fa-user text-cyan-400 mr-1.5"></i>Học sinh: <strong id="rep-name" class="text-white">Chưa cập nhật</strong></span>
+                        <span><i class="fa-solid fa-users text-cyan-400 mr-1.5"></i>Lớp: <strong id="rep-class" class="text-white">Chưa cập nhật</strong></span>
+                        <span><i class="fa-regular fa-calendar text-cyan-400 mr-1.5"></i>Ngày xuất: <span id="rep-date" class="font-mono text-xs"></span></span>
+                    </div>
+                </div>
+                <div class="flex items-center gap-2 no-print">
+                    <button onclick="window.print()" class="px-3.5 py-2 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-xs sm:text-sm font-semibold flex items-center gap-2 shadow">
+                        <i class="fa-solid fa-print"></i> In / Lưu PDF
+                    </button>
+                    <button onclick="closeReportModal()" class="p-2 rounded-lg bg-vscode-bg hover:bg-vscode-active text-gray-400 hover:text-white">
+                        <i class="fa-solid fa-xmark text-lg"></i>
+                    </button>
+                </div>
+            </div>
+
+            <!-- Tổng quan Điểm & Xếp loại -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-vscode-bg border border-vscode-border rounded-xl p-4 flex flex-col justify-center items-center text-center">
+                    <span class="text-xs text-gray-400 uppercase font-semibold tracking-wider">Điểm Tổng Hợp</span>
+                    <div class="text-4xl font-extrabold text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400 my-1 font-mono" id="rep-total-score">0 / 100</div>
+                    <span class="text-xs text-gray-400" id="rep-completed-lessons">Đã hoàn thành 0/5 chủ đề</span>
+                </div>
+
+                <div class="md:col-span-2 bg-vscode-bg border border-vscode-border rounded-xl p-4 flex flex-col justify-center">
+                    <div class="flex items-center justify-between mb-1">
+                        <span class="text-xs text-gray-400 uppercase font-semibold">Mức độ Sẵn sàng Dự án Thực tế</span>
+                        <span id="rep-rank-badge" class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-700 text-gray-300">Chưa xếp loại</span>
+                    </div>
+                    <h4 id="rep-rank-title" class="text-lg font-bold text-white mb-1">Khởi động hành trình ESP32</h4>
+                    <p id="rep-rank-desc" class="text-xs sm:text-sm text-gray-300 leading-relaxed">Hãy hoàn thành các bài test ở từng chủ đề để hệ thống phân tích chi tiết điểm mạnh và lỗ hổng kiến thức của em.</p>
+                </div>
+            </div>
+
+            <!-- Biểu đồ Thanh 5 Nhóm Năng Lực -->
+            <div class="bg-vscode-bg border border-vscode-border rounded-xl p-5 mb-6">
+                <h3 class="text-sm font-bold text-white uppercase tracking-wider mb-4 flex items-center gap-2">
+                    <i class="fa-solid fa-chart-bar text-cyan-400"></i> Phân tích 5 Nhóm Năng Lực Cốt Lõi
+                </h3>
+                <div id="rep-skills-bars" class="space-y-4">
+                    <!-- Render bằng JS -->
+                </div>
+            </div>
+
+            <!-- Nhận xét Cá nhân hóa & Lời khuyên từ Trợ lý AI -->
+            <div class="bg-gradient-to-br from-blue-950/40 to-cyan-950/30 border border-cyan-800/50 rounded-xl p-5">
+                <h3 class="text-sm font-bold text-cyan-300 uppercase tracking-wider mb-3 flex items-center gap-2">
+                    <i class="fa-solid fa-robot"></i> Nhận xét & Lộ trình Cải thiện Cá nhân hóa
+                </h3>
+                <div id="rep-feedback-list" class="space-y-2.5 text-sm text-gray-200">
+                    <!-- Render bằng JS -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal Xác nhận Reset dữ liệu -->
+    <div id="reset-modal" class="fixed inset-0 bg-black/75 z-50 hidden items-center justify-center p-4">
+        <div class="bg-vscode-sidebar border border-vscode-border rounded-2xl max-w-sm w-full p-6 shadow-2xl">
+            <h3 class="text-lg font-bold text-white mb-2 flex items-center gap-2">
+                <i class="fa-solid fa-triangle-exclamation text-amber-400"></i> Xác nhận xóa tiến độ?
+            </h3>
+            <p class="text-sm text-gray-300 mb-5">Toàn bộ điểm số và câu trả lời của 5 bài học sẽ bị xóa để làm lại từ đầu. Bạn chắc chắn chứ?</p>
+            <div class="flex justify-end gap-2">
+                <button onclick="closeResetModal()" class="px-4 py-2 rounded-lg text-sm text-gray-300 hover:bg-vscode-active">Hủy</button>
+                <button onclick="executeResetProgress()" class="px-4 py-2 rounded-lg text-sm font-semibold bg-red-600 hover:bg-red-500 text-white">Xóa & Làm lại</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- DỮ LIỆU & LOGIC ỨNG DỤNG -->
+    <script>
+        // =========================================================================
+        // 1. KHO DỮ LIỆU 5 BÀI HỌC & BÀI TEST TƯ DUY LẬP TRÌNH ESP32 (PLATFORMIO)
+        // =========================================================================
+        const LESSONS_DATA = [
+            {
+                id: 1,
+                shortTitle: "Bài 1: Cấu trúc & LED",
+                skillName: "1. Cấu trúc & Cú pháp ESP32",
+                title: "Bài 1: Cấu trúc chương trình C/C++ trên ESP32 & Điều khiển đèn LED",
+                subtitle: "Làm quen môi trường VS Code + PlatformIO, hàm setup(), loop() và điều khiển chân GPIO xuất tín hiệu số.",
+                hardware: ["Mạch ESP32 DevKit V1", "1 Đèn LED + Điện trở 220Ω (chân GPIO 2)"],
+                theory: {
+                    summary: [
+                        {
+                            heading: "1. Sự khác biệt khi lập trình trên PlatformIO (VS Code)",
+                            text: "Khác với Arduino IDE tự động chèn thư viện nền, trên <strong>PlatformIO</strong> (tệp <code>src/main.cpp</code>), dòng đầu tiên <strong>bắt buộc</strong> phải có <code>#include &lt;Arduino.h&gt;</code> để trình biên dịch hiểu được các hàm như <code>pinMode</code>, <code>digitalWrite</code>, <code>delay</code>."
+                        },
+                        {
+                            heading: "2. Hai hàm xương sống: setup() và loop()",
+                            text: "<ul class='list-disc pl-5 space-y-1 mt-1'><li><code>void setup()</code>: Chạy <strong>duy nhất 1 lần</strong> khi ESP32 khởi động hoặc nhấn nút Reset. Dùng để cấu hình chế độ chân (<code>OUTPUT</code> / <code>INPUT</code>).</li><li><code>void loop()</code>: Chạy <strong>lặp đi lặp lại vô tận</strong> từ trên xuống dưới sau khi <code>setup()</code> kết thúc.</li></ul>"
+                        },
+                        {
+                            heading: "3. Các lệnh điều khiển xuất tín hiệu số (Digital Output)",
+                            text: "<ul class='list-disc pl-5 space-y-1 mt-1'><li><code>pinMode(pin, OUTPUT);</code>: Thiết lập chân <code>pin</code> là chân xuất tín hiệu ra thiết bị (đèn LED, còi...).</li><li><code>digitalWrite(pin, HIGH);</code>: Cấp điện áp 3.3V (mức logic 1) làm đèn LED sáng.</li><li><code>digitalWrite(pin, LOW);</code>: Ngắt điện áp về 0V (mức logic 0) làm đèn LED tắt.</li><li><code>delay(ms);</code>: Tạm dừng chương trình theo đơn vị <strong>mili-giây</strong> (<code>1000 ms = 1 giây</code>).</li></ul>"
+                        }
+                    ],
+                    diagramHTML: `
+                        <div class="bg-[#18181b] border border-vscode-border rounded-xl p-4 flex flex-col md:flex-row items-center justify-around gap-4">
+                            <div class="flex items-center gap-3">
+                                <div class="bg-slate-800 border-2 border-cyan-500/60 rounded-lg px-4 py-3 text-center shadow-lg">
+                                    <div class="text-xs text-cyan-400 font-mono font-bold">ESP32 DevKit</div>
+                                    <div class="mt-2 flex items-center gap-2 text-xs font-mono">
+                                        <span class="px-2 py-0.5 bg-emerald-950 text-emerald-400 border border-emerald-700 rounded">GPIO 2</span>
+                                        <span class="text-gray-400">──[ 220Ω ]──▶</span>
+                                    </div>
+                                    <div class="mt-1 flex items-center gap-2 text-xs font-mono">
+                                        <span class="px-2 py-0.5 bg-gray-800 text-gray-300 border border-gray-600 rounded">GND</span>
+                                        <span class="text-gray-400">─────────────▶</span>
+                                    </div>
+                                </div>
+                                <div class="flex flex-col items-center">
+                                    <div class="w-8 h-8 rounded-full bg-red-500 led-glow flex items-center justify-center text-white text-xs font-bold">LED</div>
+                                    <span class="text-[11px] text-gray-400 mt-1 font-mono">HIGH = 3.3V</span>
+                                </div>
+                            </div>
+                            <div class="text-xs text-gray-300 bg-vscode-sidebar p-3 rounded-lg border border-vscode-border max-w-sm">
+                                <div class="font-bold text-amber-400 mb-1"><i class="fa-solid fa-bolt mr-1"></i> Luồng thực thi chương trình:</div>
+                                <div class="font-mono text-[11px] text-cyan-300">Cấp nguồn ─▶ setup() [1 lần] ─▶ loop() ↻ [Vô tận]</div>
+                            </div>
+                        </div>
+                    `,
+                    sampleCode: `#include <Arduino.h> // Bắt buộc trong PlatformIO
+
+const int LED_PIN = 2; // Đèn LED gắn ở chân GPIO 2 (LED tích hợp trên mạch)
+
+void setup() {
+    // Cấu hình chân GPIO 2 là NGÕ RA (OUTPUT)
+    pinMode(LED_PIN, OUTPUT);
+}
+
+void loop() {
+    digitalWrite(LED_PIN, HIGH); // Bật đèn LED (mức 3.3V)
+    delay(500);                  // Giữ sáng trong 0.5 giây (500ms)
+    
+    digitalWrite(LED_PIN, LOW);  // Tắt đèn LED (mức 0V)
+    delay(500);                  // Giữ tắt trong 0.5 giây
+}`
+                },
+                questions: [
+                    {
+                        id: "b1_q1",
+                        type: "mcq",
+                        tag: "Trắc nghiệm tư duy",
+                        prompt: "Một học sinh viết chương trình nhấp nháy đèn LED nhưng lại đặt lệnh <code>digitalWrite(2, HIGH);</code> trong hàm <code>setup()</code> và để trống hàm <code>loop()</code>. Hiện tượng gì sẽ xảy ra khi nạp code vào ESP32?",
+                        options: [
+                            "Đèn LED nhấp nháy liên tục mỗi giây.",
+                            "Đèn LED bật sáng 1 lần rồi giữ nguyên trạng thái sáng mãi mãi.",
+                            "Đèn LED không bao giờ sáng vì hàm loop() bị trống.",
+                            "ESP32 báo lỗi biên dịch trên PlatformIO."
+                        ],
+                        correct: 1,
+                        explanation: "Hàm <code>setup()</code> chỉ chạy duy nhất 1 lần khi cấp nguồn. Khi chân GPIO 2 được đặt ở mức <code>HIGH</code> và không có lệnh nào thay đổi nó trong <code>loop()</code>, đèn sẽ giữ nguyên trạng thái sáng."
+                    },
+                    {
+                        id: "b1_q2",
+                        type: "mcq",
+                        tag: "Đọc hiểu thời gian",
+                        prompt: "Quan sát đoạn code trong <code>loop()</code>:<br><pre class='bg-[#18181b] p-2.5 rounded mt-2 text-xs font-mono text-gray-200'>digitalWrite(2, HIGH);\ndelay(200);\ndigitalWrite(2, LOW);\ndelay(800);</pre>Trong <strong>10 giây</strong> hoạt động liên tục, đèn LED sẽ chớp sáng bao nhiêu lần?",
+                        options: [
+                            "5 lần",
+                            "10 lần",
+                            "20 lần",
+                            "50 lần"
+                        ],
+                        correct: 1,
+                        explanation: "Một chu kỳ (1 lần sáng + 1 lần tắt) tốn tổng thời gian là <code>200ms + 800ms = 1000ms = 1 giây</code>. Do đó trong 10 giây, đèn sẽ thực hiện đúng 10 chu kỳ chớp sáng."
+                    },
+                    {
+                        id: "b1_q3",
+                        type: "fill",
+                        tag: "Điền code còn thiếu",
+                        prompt: "Hoàn thiện chương trình điều khiển còi báo động (chân GPIO 15) kêu 1 giây rồi nghỉ 2 giây:",
+                        codeTemplate: `#include <Arduino.h>
+#define BUZZER_PIN 15
+
+void setup() {
+    pinMode(BUZZER_PIN, {{BLANK_0}});
+}
+
+void loop() {
+    digitalWrite(BUZZER_PIN, HIGH);
+    delay({{BLANK_1}});
+    digitalWrite(BUZZER_PIN, LOW);
+    delay(2000);
+}`,
+                        blanks: [
+                            { placeholder: "Chế độ chân...", answer: ["OUTPUT"] },
+                            { placeholder: "Số mili-giây...", answer: ["1000"] }
+                        ],
+                        explanation: "Còi báo động nhận tín hiệu từ ESP32 nên chế độ chân phải là <code>OUTPUT</code>. Thời gian 1 giây tương ứng với <code>1000</code> mili-giây."
+                    },
+                    {
+                        id: "b1_q4",
+                        type: "debug",
+                        tag: "Tìm & Sửa lỗi (PlatformIO)",
+                        prompt: "Đoạn code dưới đây viết trong tệp <code>main.cpp</code> của PlatformIO nhưng bị báo lỗi khi bấm nút Build (✓). Hãy tìm dòng bị lỗi và cách sửa đúng:",
+                        buggyCode: [
+                            { line: 1, code: "// Dự án bật đèn LED chân 4" },
+                            { line: 2, code: "void setup() {" },
+                            { line: 3, code: "  pinMode(4, OUTPUT);" },
+                            { line: 4, code: "}" },
+                            { line: 5, code: "void loop() {" },
+                            { line: 6, code: "  digitalWrite(4, HIGH);" },
+                            { line: 7, code: "}" }
+                        ],
+                        options: [
+                            "Thiếu dòng <code>#include &lt;Arduino.h&gt;</code> ở đầu tệp (Dòng 1).",
+                            "Dòng 3 sai cú pháp, phải viết là <code>pinMode(OUTPUT, 4);</code>.",
+                            "Dòng 6 thiếu lệnh <code>delay(1000);</code> nên không biên dịch được.",
+                            "Dòng 2 phải viết là <code>int setup()</code> thay vì <code>void setup()</code>."
+                        ],
+                        correct: 0,
+                        explanation: "Trong PlatformIO (C++ chuẩn), bắt buộc phải khai báo <code>#include &lt;Arduino.h&gt;</code> ở đầu tệp <code>main.cpp</code> để sử dụng các hàm và hằng số như <code>pinMode</code>, <code>OUTPUT</code>, <code>HIGH</code>."
+                    }
+                ]
+            },
+            {
+                id: 2,
+                shortTitle: "Bài 2: Biến & Cảm biến",
+                skillName: "2. Tư duy Biến & Dữ liệu",
+                title: "Bài 2: Sử dụng Biến & Đọc tín hiệu Nút nhấn / Cảm biến lửa",
+                subtitle: "Hiểu kiểu dữ liệu (int, bool), lệnh digitalRead() và cơ chế điện trở kéo lên (INPUT_PULLUP).",
+                hardware: ["ESP32 DevKit V1", "Nút nhấn (GPIO 4) & Cảm biến lửa hồng ngoại (GPIO 5)"],
+                theory: {
+                    summary: [
+                        {
+                            heading: "1. Biến (Variable) là gì?",
+                            text: "Biến giống như một <strong>chiếc hộp có dán nhãn</strong> trong bộ nhớ ESP32 dùng để lưu trữ dữ liệu tạm thời (trạng thái nút nhấn, giá trị cảm biến...).<br>• <code>int</code>: Lưu số nguyên (ví dụ: <code>int buttonPin = 4;</code>, <code>int count = 0;</code>).<br>• <code>bool</code>: Lưu giá trị logic đúng/sai (<code>true</code> / <code>false</code> hoặc <code>1</code> / <code>0</code>)."
+                        },
+                        {
+                            heading: "2. Đọc tín hiệu số với digitalRead() và INPUT_PULLUP",
+                            text: "Để đọc trạng thái từ Nút nhấn hoặc chân <code>DO</code> (Digital Output) của Cảm biến lửa:<br>• <code>pinMode(4, INPUT_PULLUP);</code>: Kích hoạt điện trở kéo lên bên trong ESP32. Khi <strong>chưa nhấn nút</strong>, chân đọc được mức <code>HIGH</code> (1). Khi <strong>nhấn nút</strong> (nối xuống GND), chân đọc được mức <code>LOW</code> (0).<br>• <strong>Cảm biến lửa (Module IR):</strong> Ở trạng thái bình thường (không có lửa), chân <code>DO</code> xuất mức <code>HIGH</code> (1). Khi phát hiện tia lửa, đèn trên cảm biến sáng và chân <code>DO</code> xuất mức <code>LOW</code> (0)."
+                        }
+                    ],
+                    diagramHTML: `
+                        <div class="bg-[#18181b] border border-vscode-border rounded-xl p-4 grid grid-cols-1 md:grid-cols-2 gap-4 text-xs">
+                            <div class="bg-vscode-sidebar p-3 rounded-lg border border-vscode-border">
+                                <div class="font-bold text-cyan-400 mb-2"><i class="fa-solid fa-hand-pointer mr-1"></i> Logic Nút nhấn (INPUT_PULLUP)</div>
+                                <div class="flex justify-between items-center py-1 border-b border-gray-700">
+                                    <span>Chưa nhấn nút (Hở mạch):</span>
+                                    <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-mono">HIGH (1)</span>
+                                </div>
+                                <div class="flex justify-between items-center pt-1">
+                                    <span>Đang nhấn nút (Nối GND):</span>
+                                    <span class="px-2 py-0.5 rounded bg-amber-950 text-amber-400 font-mono">LOW (0)</span>
+                                </div>
+                            </div>
+                            <div class="bg-vscode-sidebar p-3 rounded-lg border border-vscode-border">
+                                <div class="font-bold text-orange-400 mb-2"><i class="fa-solid fa-fire mr-1"></i> Logic Cảm biến lửa (Chân DO)</div>
+                                <div class="flex justify-between items-center py-1 border-b border-gray-700">
+                                    <span>An toàn (Không có lửa):</span>
+                                    <span class="px-2 py-0.5 rounded bg-emerald-950 text-emerald-400 font-mono">HIGH (1)</span>
+                                </div>
+                                <div class="flex justify-between items-center pt-1">
+                                    <span>Phát hiện ngọn lửa:</span>
+                                    <span class="px-2 py-0.5 rounded bg-red-950 text-red-400 font-mono font-bold">LOW (0)</span>
+                                </div>
+                            </div>
+                        </div>
+                    `,
+                    sampleCode: `#include <Arduino.h>
+
+int flamePin = 5;     // Chân DO của cảm biến lửa nối GPIO 5
+int fireStatus = 1;   // Biến lưu trạng thái cảm biến
+
+void setup() {
+    Serial.begin(115200);          // Mở cổng Serial tốc độ 115200 để xem giá trị
+    pinMode(flamePin, INPUT);      // Cảm biến lửa là thiết bị NGÕ VÀO (INPUT)
+}
+
+void loop() {
+    // Đọc tín hiệu từ cảm biến và lưu vào biến fireStatus
+    fireStatus = digitalRead(flamePin);
+    
+    Serial.print("Trang thai cam bien lua: ");
+    Serial.println(fireStatus);    // In ra 0 (có lửa) hoặc 1 (an toàn)
+    delay(300);
+}`
+                },
+                questions: [
+                    {
+                        id: "b2_q1",
+                        type: "mcq",
+                        tag: "Tư duy biến & kiểu dữ liệu",
+                        prompt: "Trong một dự án đếm số lần khách đi qua cửa cảm biến, em cần khai báo một biến <code>soKhach</code> có giá trị khởi đầu bằng 0 và có thể tăng lên tới hàng nghìn. Cách khai báo nào sau đây là chuẩn xác nhất trong C++?",
+                        options: [
+                            "<code>bool soKhach = 0;</code>",
+                            "<code>int soKhach = 0;</code>",
+                            "<code>void soKhach = 0;</code>",
+                            "<code>HIGH soKhach = 0;</code>"
+                        ],
+                        correct: 1,
+                        explanation: "Kiểu <code>bool</code> chỉ lưu được 2 giá trị (0 hoặc 1). Để lưu số lượng đếm tăng dần lên hàng nghìn, ta phải dùng kiểu số nguyên <code>int</code>."
+                    },
+                    {
+                        id: "b2_q2",
+                        type: "mcq",
+                        tag: "Phân tích trạng thái phần cứng",
+                        prompt: "Em nối một nút nhấn giữa chân <strong>GPIO 4</strong> và chân <strong>GND</strong>, sau đó cấu hình <code>pinMode(4, INPUT_PULLUP);</code>. Khi em <strong>nhấn giữ</strong> nút nhấn này, hàm <code>digitalRead(4)</code> sẽ trả về giá trị nào?",
+                        options: [
+                            "<code>HIGH</code> (hoặc 1)",
+                            "<code>LOW</code> (hoặc 0)",
+                            "<code>4</code>",
+                            "Giá trị ngẫu nhiên chập chờn giữa 0 và 1"
+                        ],
+                        correct: 1,
+                        explanation: "Với chế độ <code>INPUT_PULLUP</code>, chân GPIO 4 bình thường được kéo lên mức <code>HIGH</code> (3.3V). Khi nhấn nút, chân GPIO 4 nối trực tiếp với GND (0V) nên giá trị đọc được là <code>LOW</code> (0)."
+                    },
+                    {
+                        id: "b2_q3",
+                        type: "fill",
+                        tag: "Điền code còn thiếu",
+                        prompt: "Hoàn thiện đoạn code đọc trạng thái từ nút nhấn nối GND (dùng điện trở kéo lên nội) và lưu vào biến <code>btnState</code>:",
+                        codeTemplate: `#include <Arduino.h>
+int btnPin = 4;
+
+void setup() {
+    pinMode(btnPin, {{BLANK_0}});
+}
+
+void loop() {
+    int btnState = {{BLANK_1}}(btnPin);
+    delay(100);
+}`,
+                        blanks: [
+                            { placeholder: "Chế độ kéo lên...", answer: ["INPUT_PULLUP"] },
+                            { placeholder: "Hàm đọc tín hiệu...", answer: ["digitalRead"] }
+                        ],
+                        explanation: "Nút nhấn nối GND không dùng điện trở ngoài cần dùng <code>INPUT_PULLUP</code>. Hàm đọc tín hiệu số từ chân GPIO là <code>digitalRead</code>."
+                    },
+                    {
+                        id: "b2_q4",
+                        type: "debug",
+                        tag: "Tìm & Sửa lỗi Logic",
+                        prompt: "Đoạn code dưới đây dùng để đọc cảm biến lửa ở chân 5 nhưng luôn luôn báo giá trị không đổi. Hãy tìm lỗi sai:",
+                        buggyCode: [
+                            { line: 1, code: "#include <Arduino.h>" },
+                            { line: 2, code: "int flamePin = 5;" },
+                            { line: 3, code: "int val = digitalRead(flamePin);" },
+                            { line: 4, code: "void setup() {" },
+                            { line: 5, code: "  pinMode(flamePin, INPUT);" },
+                            { line: 6, code: "}" },
+                            { line: 7, code: "void loop() {" },
+                            { line: 8, code: "  // Quên cập nhật biến val ở đây" },
+                            { line: 9, code: "}" }
+                        ],
+                        options: [
+                            "Dòng 3 đọc cảm biến ngoài hàm <code>loop()</code> nên biến <code>val</code> không bao giờ được cập nhật lại khi có lửa.",
+                            "Dòng 5 sai, cảm biến lửa phải cấu hình là <code>OUTPUT</code>.",
+                            "Dòng 2 sai, biến <code>flamePin</code> phải khai báo là <code>bool</code>.",
+                            "Dòng 1 thừa thư viện <code>Arduino.h</code>."
+                        ],
+                        correct: 0,
+                        explanation: "Việc đọc cảm biến (<code>val = digitalRead(flamePin);</code>) phải được đặt bên trong hàm <code>loop()</code> để ESP32 liên tục kiểm tra trạng thái mới nhất từ môi trường."
+                    }
+                ]
+            },
+            {
+                id: 3,
+                shortTitle: "Bài 3: Lệnh IF & Báo cháy",
+                skillName: "3. Tư duy Rẽ nhánh (If-Else)",
+                title: "Bài 3: Câu lệnh rẽ nhánh IF-ELSE & Hệ thống cảnh báo cháy tự động",
+                subtitle: "Tư duy ra quyết định trong lập trình: kết hợp Cảm biến lửa, Đèn LED cảnh báo và Còi hú.",
+                hardware: ["ESP32 DevKit V1", "Cảm biến lửa (GPIO 5)", "Đèn LED đỏ (GPIO 2)"],
+                theory: {
+                    summary: [
+                        {
+                            heading: "1. Cấu trúc rẽ nhánh IF - ELSE",
+                            text: "Giúp ESP32 tự động ra quyết định dựa trên điều kiện thực tế:<br><pre class='bg-[#18181b] p-2.5 rounded mt-1.5 text-xs font-mono text-gray-200'>if (điều_kiện) {\n    // Chạy khối lệnh này nếu điều_kiện ĐÚNG\n} else {\n    // Chạy khối lệnh này nếu điều_kiện SAI\n}</pre>"
+                        },
+                        {
+                            heading: "2. Các toán tử so sánh & logic quan trọng (Rất hay nhầm!)",
+                            text: "<ul class='list-disc pl-5 space-y-1 mt-1'><li><code>==</code> : So sánh <strong>BẰNG NHAU</strong> (ví dụ: <code>if (fire == LOW)</code>). <span class='text-red-400 font-semibold'>Cảnh báo:</span> Dấu <code>=</code> đơn là phép gán giá trị, không phải phép so sánh!</li><li><code>!=</code> : So sánh <strong>KHÁC NHAU</strong>.</li><li><code>&&</code> : Toán tử <strong>VÀ</strong> (cả 2 điều kiện cùng đúng).</li><li><code>||</code> : Toán tử <strong>HOẶC</strong> (chỉ cần 1 trong 2 điều kiện đúng).</li></ul>"
+                        }
+                    ],
+                    diagramHTML: `
+                        <div class="bg-[#18181b] border border-vscode-border rounded-xl p-4 flex flex-col items-center">
+                            <div class="text-xs font-bold text-cyan-400 mb-3 uppercase tracking-wider">Lưu đồ thuật toán Hệ thống Báo cháy</div>
+                            <div class="flex flex-col sm:flex-row items-center gap-3 text-xs font-mono">
+                                <div class="px-3 py-2 rounded-lg bg-slate-800 border border-slate-600 text-white">Đọc cảm biến lửa (fire)</div>
+                                <i class="fa-solid fa-arrow-right text-gray-500 hidden sm:block"></i>
+                                <i class="fa-solid fa-arrow-down text-gray-500 sm:hidden"></i>
+                                <div class="px-3 py-2 rounded-lg bg-amber-950/60 border border-amber-500 text-amber-300 font-bold">if (fire == LOW) ?</div>
+                                <div class="flex flex-col gap-2">
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-emerald-400 font-bold">ĐÚNG ──▶</span>
+                                        <span class="px-2.5 py-1 rounded bg-red-950 border border-red-500 text-red-300">Bật LED đỏ (HIGH) + Hú còi</span>
+                                    </div>
+                                    <div class="flex items-center gap-2">
+                                        <span class="text-gray-400 font-bold">SAI ───▶</span>
+                                        <span class="px-2.5 py-1 rounded bg-emerald-950/50 border border-emerald-700 text-emerald-300">Tắt LED đỏ (LOW) - An toàn</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `,
+                    sampleCode: `#include <Arduino.h>
+
+const int FLAME_PIN = 5; // Cảm biến lửa
+const int LED_ALARM = 2; // Đèn cảnh báo cháy
+
+void setup() {
+    pinMode(FLAME_PIN, INPUT);
+    pinMode(LED_ALARM, OUTPUT);
+}
+
+void loop() {
+    int fireState = digitalRead(FLAME_PIN);
+
+    // Cảm biến lửa trả về LOW (0) khi phát hiện có lửa
+    if (fireState == LOW) {
+        digitalWrite(LED_ALARM, HIGH); // Bật đèn báo động
+    } else {
+        digitalWrite(LED_ALARM, LOW);  // Tắt đèn khi an toàn
+    }
+    delay(100);
+}`
+                },
+                questions: [
+                    {
+                        id: "b3_q1",
+                        type: "mcq",
+                        tag: "Tư duy logic rẽ nhánh",
+                        prompt: "Một tòa nhà lắp 2 cảm biến lửa ở Phòng Bếp (<code>fire1</code>) và Phòng Khách (<code>fire2</code>). Biết cảm biến trả về <code>LOW</code> khi có lửa. Điều kiện nào trong lệnh <code>if</code> giúp hệ thống báo động ngay khi <strong>ít nhất một trong hai phòng</strong> có cháy?",
+                        options: [
+                            "<code>if (fire1 == LOW && fire2 == LOW)</code>",
+                            "<code>if (fire1 == LOW || fire2 == LOW)</code>",
+                            "<code>if (fire1 == HIGH || fire2 == HIGH)</code>",
+                            "<code>if (fire1 != fire2)</code>"
+                        ],
+                        correct: 1,
+                        explanation: "Toán tử <code>||</code> (HOẶC) trả về đúng khi chỉ cần 1 trong 2 cảm biến phát hiện lửa (<code>== LOW</code>). Nếu dùng <code>&&</code> (VÀ) thì phải cháy cả 2 phòng cùng lúc chuông mới kêu, rất nguy hiểm!"
+                    },
+                    {
+                        id: "b3_q2",
+                        type: "mcq",
+                        tag: "Đọc hiểu luồng chạy",
+                        prompt: "Cho đoạn code:<br><pre class='bg-[#18181b] p-2.5 rounded mt-2 text-xs font-mono text-gray-200'>int temp = 38;\nif (temp > 40) {\n  digitalWrite(2, HIGH);\n} else if (temp > 35) {\n  digitalWrite(4, HIGH);\n} else {\n  digitalWrite(5, HIGH);\n}</pre>Khi <code>temp = 38</code>, chân GPIO nào được bật lên mức <code>HIGH</code>?",
+                        options: [
+                            "Chỉ chân GPIO 2",
+                            "Chỉ chân GPIO 4",
+                            "Cả chân GPIO 4 và GPIO 5",
+                            "Chỉ chân GPIO 5"
+                        ],
+                        correct: 1,
+                        explanation: "<code>38 > 40</code> là SAI nên bỏ qua nhánh đầu. Kiểm tra tiếp <code>38 > 35</code> là ĐÚNG nên thực hiện <code>digitalWrite(4, HIGH);</code> rồi thoát khỏi toàn bộ cấu trúc <code>if - else if - else</code>."
+                    },
+                    {
+                        id: "b3_q3",
+                        type: "fill",
+                        tag: "Điền code còn thiếu",
+                        prompt: "Hoàn thiện hệ thống bật đèn hành lang (<code>LED_PIN</code>) khi trời tối (cảm biến ánh sáng <code>lightVal == 1</code>) VÀ có người đi qua (<code>pirVal == HIGH</code>):",
+                        codeTemplate: `void loop() {
+    int lightVal = digitalRead(12);
+    int pirVal = digitalRead(13);
+
+    if (lightVal == 1 {{BLANK_0}} pirVal == HIGH) {
+        digitalWrite(LED_PIN, HIGH);
+    } {{BLANK_1}} {
+        digitalWrite(LED_PIN, LOW);
+    }
+}`,
+                        blanks: [
+                            { placeholder: "Toán tử logic...", answer: ["&&"] },
+                            { placeholder: "Từ khóa ngược lại...", answer: ["else"] }
+                        ],
+                        explanation: "Cần thỏa mãn đồng thời cả 2 điều kiện (trời tối VÀ có người) nên dùng toán tử <code>&&</code>. Nhánh xử lý khi điều kiện sai dùng từ khóa <code>else</code>."
+                    },
+                    {
+                        id: "b3_q4",
+                        type: "debug",
+                        tag: "Tìm & Sửa lỗi Kinh điển",
+                        prompt: "Học sinh viết code báo cháy dưới đây nhưng đèn báo động <strong>không bao giờ sáng</strong> kể cả khi hơ lửa vào cảm biến. Hãy tìm lỗi sai nghiêm trọng ở dòng số 4:",
+                        buggyCode: [
+                            { line: 1, code: "#include <Arduino.h>" },
+                            { line: 2, code: "void loop() {" },
+                            { line: 3, code: "  int fire = digitalRead(5);" },
+                            { line: 4, code: "  if (fire = LOW) {" },
+                            { line: 5, code: "    digitalWrite(2, HIGH);" },
+                            { line: 6, code: "  } else {" },
+                            { line: 7, code: "    digitalWrite(2, LOW);" },
+                            { line: 8, code: "  }" },
+                            { line: 9, code: "}" }
+                        ],
+                        options: [
+                            "Dòng 4 dùng dấu gán <code>=</code> thay vì phép so sánh bằng <code>==</code> (phải sửa thành <code>if (fire == LOW)</code>).",
+                            "Dòng 3 phải dùng <code>digitalWrite(5)</code> mới đúng.",
+                            "Dòng 6 thừa từ khóa <code>else</code>.",
+                            "Dòng 5 phải đặt <code>LOW</code> để bật đèn."
+                        ],
+                        correct: 0,
+                        explanation: "Đây là lỗi kinh điển trong C/C++: <code>if (fire = LOW)</code> sẽ gán giá trị <code>LOW</code> (0) vào biến <code>fire</code>, và biểu thức có giá trị 0 (Sai) nên lệnh <code>if</code> không bao giờ thực thi! Phải dùng <code>==</code>."
+                    }
+                ]
+            },
+            {
+                id: 4,
+                shortTitle: "Bài 4: Vòng lặp FOR & Servo",
+                skillName: "4. Tư duy Lặp (For)",
+                title: "Bài 4: Vòng lặp FOR cơ bản & Điều khiển góc quay Động cơ Servo",
+                subtitle: "Tự động hóa các thao tác lặp lại theo quy luật và điều khiển góc quay chính xác 0° - 180° với thư viện ESP32Servo.",
+                hardware: ["ESP32 DevKit V1", "Động cơ Servo SG90 (Dây tín hiệu cam nối GPIO 18)"],
+                theory: {
+                    summary: [
+                        {
+                            heading: "1. Cấu trúc vòng lặp FOR trong C/C++",
+                            text: "Dùng khi biết trước số lần lặp hoặc muốn tăng/giảm giá trị một biến theo bước đều đặn:<br><pre class='bg-[#18181b] p-2.5 rounded mt-1.5 text-xs font-mono text-gray-200'>for (khởi_tạo; điều_kiện_lặp; bước_nhảy) {\n    // Khối lệnh được lặp lại\n}</pre>Ví dụ: <code>for (int goc = 0; goc <= 180; goc += 10)</code> sẽ cho biến <code>goc</code> chạy từ 0, 10, 20... đến 180."
+                        },
+                        {
+                            heading: "2. Điều khiển Động cơ Servo trên ESP32",
+                            text: "Trên PlatformIO, ta thêm thư viện <code>madhephaestus/ESP32Servo</code> vào <code>platformio.ini</code> và sử dụng các lệnh:<br>• <code>#include &lt;ESP32Servo.h&gt;</code>: Khai báo thư viện.<br>• <code>Servo myServo;</code>: Tạo đối tượng động cơ Servo.<br>• <code>myServo.attach(18);</code>: Gắn chân tín hiệu Servo vào GPIO 18 (trong <code>setup()</code>).<br>• <code>myServo.write(goc);</code>: Quay trục Servo đến góc <code>goc</code> (từ <code>0</code> đến <code>180</code> độ)."
+                        }
+                    ],
+                    diagramHTML: `
+                        <div class="bg-[#18181b] border border-vscode-border rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+                            <div class="flex items-center gap-4">
+                                <div class="w-16 h-16 rounded-full border-2 border-dashed border-cyan-400 flex items-center justify-center relative bg-slate-900">
+                                    <div class="w-1 h-7 bg-amber-400 rounded-full origin-bottom transform -rotate-45"></div>
+                                    <span class="absolute -bottom-5 text-[10px] font-mono text-cyan-300">0° ──▶ 180°</span>
+                                </div>
+                                <div class="text-xs space-y-1">
+                                    <div class="font-bold text-white">Sơ đồ dây Servo SG90:</div>
+                                    <div class="font-mono text-[11px]"><span class="text-orange-400">● Dây Cam (Signal):</span> GPIO 18</div>
+                                    <div class="font-mono text-[11px]"><span class="text-red-400">● Dây Đỏ (VCC):</span> 5V (VIN)</div>
+                                    <div class="font-mono text-[11px]"><span class="text-amber-700">● Dây Nâu (GND):</span> GND</div>
+                                </div>
+                            </div>
+                            <div class="bg-vscode-sidebar p-3 rounded-lg border border-vscode-border text-xs font-mono text-gray-300">
+                                <div class="text-cyan-400 font-bold mb-1">Giải phẫu vòng lặp FOR:</div>
+                                <div>1. <span class="text-blue-400">int pos = 0</span> (Chạy 1 lần đầu)</div>
+                                <div>2. <span class="text-purple-400">pos &lt;= 180</span> (Kiểm tra trước mỗi vòng)</div>
+                                <div>3. <span class="text-emerald-400">pos++</span> (Tăng 1 sau mỗi vòng)</div>
+                            </div>
+                        </div>
+                    `,
+                    sampleCode: `#include <Arduino.h>
+#include <ESP32Servo.h>
+
+Servo radarServo; // Khai báo đối tượng Servo
+
+void setup() {
+    radarServo.attach(18); // Nối dây tín hiệu Servo vào chân GPIO 18
+}
+
+void loop() {
+    // Quét từ 0 độ đến 180 độ mượt mà (mỗi bước 1 độ)
+    for (int pos = 0; pos <= 180; pos += 1) {
+        radarServo.write(pos);
+        delay(15); // Chờ 15ms để Servo kịp quay tới góc mới
+    }
+    
+    // Quét ngược lại từ 180 độ về 0 độ
+    for (int pos = 180; pos >= 0; pos -= 1) {
+        radarServo.write(pos);
+        delay(15);
+    }
+}`
+                },
+                questions: [
+                    {
+                        id: "b4_q1",
+                        type: "mcq",
+                        tag: "Tính toán số vòng lặp",
+                        prompt: "Quan sát vòng lặp sau:<br><pre class='bg-[#18181b] p-2.5 rounded mt-2 text-xs font-mono text-gray-200'>for (int angle = 0; angle <= 90; angle += 30) {\n    myServo.write(angle);\n    delay(500);\n}</pre>Hỏi lệnh <code>myServo.write(angle);</code> được thực thi tổng cộng bao nhiêu lần?",
+                        options: [
+                            "3 lần (các góc 0, 30, 60)",
+                            "4 lần (các góc 0, 30, 60, 90)",
+                            "90 lần",
+                            "Vô số lần (vòng lặp vô tận)"
+                        ],
+                        correct: 1,
+                        explanation: "Biến <code>angle</code> bắt đầu từ <code>0</code> (lần 1), tăng lên <code>30</code> (lần 2), tăng lên <code>60</code> (lần 3), tăng lên <code>90</code> (lần 4, vẫn thỏa mãn <code><= 90</code>). Lần tiếp theo là <code>120</code> không thỏa điều kiện nên dừng. Tổng cộng là 4 lần."
+                    },
+                    {
+                        id: "b4_q2",
+                        type: "mcq",
+                        tag: "Tư duy điều khiển Servo",
+                        prompt: "Nếu trong vòng lặp quét Servo từ 0° đến 180°, em <strong>quên</strong> không viết lệnh <code>delay(15);</code> bên trong thân vòng lặp <code>for</code> thì điều gì sẽ xảy ra?",
+                        options: [
+                            "Servo quay cực kỳ chậm và phát ra tiếng kêu.",
+                            "Vòng lặp chạy xong trong vài micro-giây, động cơ vật lý không kịp quay theo từng bước mà giật thẳng tới góc cuối cùng (180°).",
+                            "ESP32 sẽ bị treo và tự khởi động lại.",
+                            "Servo quay tròn 360 độ không dừng."
+                        ],
+                        correct: 1,
+                        explanation: "Vi xử lý ESP32 chạy hàng triệu phép tính mỗi giây, nhanh hơn tốc độ quay cơ học của bánh răng Servo rất nhiều. Cần có <code>delay()</code> nhỏ để động cơ kịp di chuyển tới từng góc."
+                    },
+                    {
+                        id: "b4_q3",
+                        type: "fill",
+                        tag: "Điền code còn thiếu",
+                        prompt: "Hoàn thiện vòng lặp để động cơ Servo đóng rào chắn từ từ từ góc <strong>90 độ về 0 độ</strong> (mỗi bước giảm 5 độ):",
+                        codeTemplate: `void dongRaoChan() {
+    for (int goc = 90; goc {{BLANK_0}} 0; goc {{BLANK_1}} 5) {
+        myServo.write(goc);
+        delay(20);
+    }
+}`,
+                        blanks: [
+                            { placeholder: "Điều kiện dừng...", answer: [">="] },
+                            { placeholder: "Bước giảm...", answer: ["-="] }
+                        ],
+                        explanation: "Khi đếm lùi từ 90 về 0, điều kiện tiếp tục lặp là <code>goc >= 0</code> và mỗi vòng lặp phải giảm biến <code>goc</code> đi 5 đơn vị bằng toán tử <code>-=</code>."
+                    },
+                    {
+                        id: "b4_q4",
+                        type: "debug",
+                        tag: "Tìm & Sửa lỗi Vòng lặp vô tận",
+                        prompt: "Học sinh viết vòng lặp quay Servo từ 180 độ về 0 độ như sau nhưng chương trình bị kẹt mãi trong vòng lặp <code>for</code>. Hãy tìm nguyên nhân:",
+                        buggyCode: [
+                            { line: 1, code: "void loop() {" },
+                            { line: 2, code: "  for (int i = 180; i >= 0; i++) {" },
+                            { line: 3, code: "    myServo.write(i);" },
+                            { line: 4, code: "    delay(15);" },
+                            { line: 5, code: "  }" },
+                            { line: 6, code: "}" }
+                        ],
+                        options: [
+                            "Dòng 2 sai bước nhảy: <code>i</code> bắt đầu từ 180 nhưng lại dùng <code>i++</code> (tăng lên 181, 182...) nên <code>i >= 0</code> luôn đúng mãi mãi (phải dùng <code>i--</code>).",
+                            "Dòng 2 phải khởi tạo <code>int i = 0;</code>.",
+                            "Dòng 3 sai tên hàm, phải dùng <code>myServo.read(i);</code>.",
+                            "Dòng 4 giá trị <code>delay(15)</code> quá nhỏ."
+                        ],
+                        correct: 0,
+                        explanation: "Biến <code>i</code> xuất phát từ 180, nếu tăng thêm 1 (<code>i++</code>) thì nó sẽ là 181, 182... và luôn lớn hơn hoặc bằng 0. Để đi từ 180 về 0, bắt buộc phải dùng phép giảm <code>i--</code>."
+                    }
+                ]
+            },
+            {
+                id: 5,
+                shortTitle: "Bài 5: Đóng gói Hàm & Dự án",
+                skillName: "5. Tư duy Mô-đun hóa (Hàm)",
+                title: "Bài 5: Đóng gói Hàm cơ bản & Dự án Rào chắn thông minh (HC-SR04 + Servo)",
+                subtitle: "Tư duy chia để trị: tách chương trình phức tạp thành các hàm độc lập (đo khoảng cách, mở/đóng barie).",
+                hardware: ["ESP32 DevKit V1", "Cảm biến siêu âm HC-SR04 (Trig: 12, Echo: 14)", "Servo (GPIO 18) & LED (GPIO 2)"],
+                theory: {
+                    summary: [
+                        {
+                            heading: "1. Tại sao phải đóng gói Hàm (Function)?",
+                            text: "Khi dự án có nhiều linh kiện (Cảm biến siêu âm + Servo + Đèn LED), nếu dồn tất cả vào <code>loop()</code> code sẽ rất rối và khó sửa lỗi. Đóng gói hàm giúp chia nhỏ bài toán:<br>• <strong>Hàm không trả về giá trị (<code>void</code>):</strong> Thực hiện một hành động (ví dụ: <code>void moRaoChan()</code>).<br>• <strong>Hàm có trả về giá trị (<code>int</code>, <code>float</code>):</strong> Tính toán và trả kết quả về bằng lệnh <code>return</code> (ví dụ: <code>float docKhoangCach()</code>)."
+                        },
+                        {
+                            heading: "2. Nguyên lý đo khoảng cách của Cảm biến siêu âm HC-SR04",
+                            text: "Cảm biến phát ra sóng siêu âm từ chân <code>TRIG</code> và đo thời gian sóng dội lại ở chân <code>ECHO</code> bằng hàm <code>pulseIn(ECHO, HIGH)</code>:<br>Công thức tính khoảng cách (cm): <code>distance = duration * 0.034 / 2;</code> (vì vận tốc âm thanh là 0.034 cm/µs và sóng đi lẫn về nên chia 2)."
+                        }
+                    ],
+                    diagramHTML: `
+                        <div class="bg-[#18181b] border border-vscode-border rounded-xl p-4 text-xs">
+                            <div class="font-bold text-cyan-400 mb-3 text-center uppercase">Kiến trúc Mô-đun hóa Dự án Trạm Thu Phí / Rào Chắn Tự Động</div>
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+                                <div class="bg-vscode-sidebar border border-blue-500/40 p-3 rounded-lg text-center">
+                                    <div class="font-mono text-blue-400 font-bold">float getDistance()</div>
+                                    <p class="text-gray-400 mt-1 text-[11px]">Kích xung Trig/Echo HC-SR04 và <code>return</code> khoảng cách (cm)</p>
+                                </div>
+                                <div class="bg-vscode-sidebar border border-purple-500/40 p-3 rounded-lg text-center">
+                                    <div class="font-mono text-purple-400 font-bold">void loop() [Bộ não]</div>
+                                    <p class="text-gray-400 mt-1 text-[11px]">Gọi <code>getDistance()</code>. Nếu <code>&lt; 15cm</code> thì gọi hàm mở rào, ngược lại đóng rào.</p>
+                                </div>
+                                <div class="bg-vscode-sidebar border border-emerald-500/40 p-3 rounded-lg text-center">
+                                    <div class="font-mono text-emerald-400 font-bold">void setBarrier(int deg)</div>
+                                    <p class="text-gray-400 mt-1 text-[11px]">Nhận tham số góc <code>deg</code> để điều khiển Servo & LED trạng thái.</p>
+                                </div>
+                            </div>
+                        </div>
+                    `,
+                    sampleCode: `#include <Arduino.h>
+#include <ESP32Servo.h>
+
+const int TRIG_PIN = 12;
+const int ECHO_PIN = 14;
+const int LED_PIN  = 2;
+Servo barrierServo;
+
+// Hàm 1: Đo khoảng cách từ cảm biến siêu âm (Trả về số thực float)
+float getDistance() {
+    digitalWrite(TRIG_PIN, LOW);
+    delayMicroseconds(2);
+    digitalWrite(TRIG_PIN, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(TRIG_PIN, LOW);
+
+    long duration = pulseIn(ECHO_PIN, HIGH);
+    return duration * 0.034 / 2.0; // Trả về khoảng cách (cm)
+}
+
+// Hàm 2: Đóng gói thao tác điều khiển rào chắn & đèn
+void controlBarrier(bool isOpen) {
+    if (isOpen) {
+        barrierServo.write(90);       // Nâng thanh chắn lên 90 độ
+        digitalWrite(LED_PIN, HIGH);  // Bật đèn xanh cho xe qua
+    } else {
+        barrierServo.write(0);        // Hạ thanh chắn về 0 độ
+        digitalWrite(LED_PIN, LOW);   // Tắt đèn
+    }
+}
+
+void setup() {
+    pinMode(TRIG_PIN, OUTPUT);
+    pinMode(ECHO_PIN, INPUT);
+    pinMode(LED_PIN, OUTPUT);
+    barrierServo.attach(18);
+}
+
+void loop() {
+    float dist = getDistance(); // Gọi hàm lấy khoảng cách
+    if (dist > 0 && dist < 15.0) {
+        controlBarrier(true);   // Có xe đến gần (< 15cm) -> Mở rào
+        delay(3000);            // Giữ mở 3 giây cho xe đi qua
+    } else {
+        controlBarrier(false);  // Không có xe -> Đóng rào
+    }
+    delay(100);
+}`
+                },
+                questions: [
+                    {
+                        id: "b5_q1",
+                        type: "mcq",
+                        tag: "Tư duy đóng gói hàm",
+                        prompt: "Khi viết một hàm <code>tinhKhoangCach()</code> để đo khoảng cách từ cảm biến siêu âm HC-SR04 và gửi kết quả đo được (ví dụ: <code>24.5</code> cm) về cho hàm <code>loop()</code> xử lý, em cần khai báo kiểu dữ liệu trả về của hàm này là gì?",
+                        options: [
+                            "<code>void tinhKhoangCach()</code>",
+                            "<code>float tinhKhoangCach()</code>",
+                            "<code>setup tinhKhoangCach()</code>",
+                            "<code>digitalRead tinhKhoangCach()</code>"
+                        ],
+                        correct: 1,
+                        explanation: "Vì hàm cần trả về một con số có phần thập phân (<code>24.5</code> cm) thông qua lệnh <code>return</code>, kiểu dữ liệu của hàm phải là <code>float</code>. Từ khóa <code>void</code> chỉ dùng cho hàm không trả về giá trị."
+                    },
+                    {
+                        id: "b5_q2",
+                        type: "mcq",
+                        tag: "Đọc hiểu hàm có tham số",
+                        prompt: "Cho định nghĩa hàm cảnh báo:<br><pre class='bg-[#18181b] p-2.5 rounded mt-2 text-xs font-mono text-gray-200'>void canhBao(int soLan, int thoiGian) {\n  for (int i = 0; i < soLan; i++) {\n    digitalWrite(2, HIGH); delay(thoiGian);\n    digitalWrite(2, LOW);  delay(thoiGian);\n  }\n}</pre>Nếu trong <code>loop()</code> ta gọi lệnh <code>canhBao(3, 100);</code> thì đèn LED sẽ chớp bao nhiêu lần và tổng thời gian chạy hàm này là bao lâu?",
+                        options: [
+                            "Chớp 3 lần, tổng thời gian 300ms",
+                            "Chớp 3 lần, tổng thời gian 600ms",
+                            "Chớp 100 lần, tổng thời gian 300ms",
+                            "Chớp 6 lần, tổng thời gian 600ms"
+                        ],
+                        correct: 1,
+                        explanation: "Tham số thứ nhất <code>soLan = 3</code> nên vòng lặp chạy 3 lần. Mỗi lần gồm 1 lần <code>delay(100)</code> sáng và 1 lần <code>delay(100)</code> tắt = 200ms. Tổng cộng: <code>3 × 200ms = 600ms</code>."
+                    },
+                    {
+                        id: "b5_q3",
+                        type: "fill",
+                        tag: "Điền code còn thiếu",
+                        prompt: "Hoàn thiện hàm trả về giá trị khoảng cách từ HC-SR04 và lời gọi hàm trong <code>loop()</code>:",
+                        codeTemplate: `float docSieuAm() {
+    long duration = pulseIn(14, HIGH);
+    float cm = duration * 0.034 / 2.0;
+    {{BLANK_0}} cm;
+}
+
+void loop() {
+    float kc = {{BLANK_1}}();
+    if (kc < 15) {
+        // Mở rào chắn
+    }
+}`,
+                        blanks: [
+                            { placeholder: "Lệnh trả kết quả...", answer: ["return"] },
+                            { placeholder: "Tên hàm cần gọi...", answer: ["docSieuAm"] }
+                        ],
+                        explanation: "Để gửi giá trị biến <code>cm</code> ra khỏi hàm, ta dùng từ khóa <code>return</code>. Trong hàm <code>loop()</code>, ta gọi đúng tên hàm đã định nghĩa là <code>docSieuAm</code>."
+                    },
+                    {
+                        id: "b5_q4",
+                        type: "debug",
+                        tag: "Tìm & Sửa lỗi Tổ chức Code",
+                        prompt: "Đoạn code dưới đây báo lỗi biên dịch <code>'moCua' was not declared in this scope</code> (hàm chưa được khai báo). Hãy tìm nguyên nhân và cách sửa đúng trong C/C++ (PlatformIO):",
+                        buggyCode: [
+                            { line: 1, code: "#include <Arduino.h>" },
+                            { line: 2, code: "void setup() { }" },
+                            { line: 3, code: "void loop() {" },
+                            { line: 4, code: "  moCua(); // Gọi hàm mở cửa" },
+                            { line: 5, code: "}" },
+                            { line: 6, code: "void moCua() {" },
+                            { line: 7, code: "  // Code quay servo..." },
+                            { line: 8, code: "}" }
+                        ],
+                        options: [
+                            "Trong C++ chuẩn (PlatformIO), hàm <code>void moCua()</code> được viết bên dưới <code>loop()</code> nên khi <code>loop()</code> gọi nó sẽ không nhận ra. Cần chuyển định nghĩa hàm <code>moCua()</code> lên phía trên <code>loop()</code> (hoặc khai báo nguyên mẫu hàm).",
+                            "Dòng 4 phải gọi là <code>void moCua();</code>.",
+                            "Dòng 6 phải đổi thành <code>int moCua()</code>.",
+                            "Không được phép gọi hàm tự tạo bên trong hàm <code>loop()</code>."
+                        ],
+                        correct: 0,
+                        explanation: "Trình biên dịch C++ đọc code từ trên xuống dưới. Vì vậy, các hàm tự định nghĩa phải được viết phía trên hàm gọi nó (<code>setup</code> / <code>loop</code>), hoặc phải khai báo prototype ở đầu tệp."
+                    }
+                ]
+            }
+        ];
+
+        // =========================================================================
+        // 2. QUẢN LÝ TRẠNG THÁI & LƯU TRỮ LOCALSTORAGE
+        // =========================================================================
+        const STORAGE_KEY = "esp32_codelab_progress_v1";
+
+        let appState = {
+            currentLessonId: 1,
+            currentTab: "theory", // 'theory' | 'test'
+            studentName: "",
+            studentClass: "",
+            // Lưu kết quả từng bài: { [lessonId]: { submitted: bool, score: number, maxScore: number, userAnswers: {} } }
+            results: {}
+        };
+
+        function loadState() {
+            try {
+                const saved = localStorage.getItem(STORAGE_KEY);
+                if (saved) {
+                    const parsed = JSON.parse(saved);
+                    appState = { ...appState, ...parsed };
+                }
+            } catch (e) {
+                console.error("Không thể tải dữ liệu từ localStorage:", e);
+            }
+        }
+
+        function saveState() {
+            try {
+                localStorage.setItem(STORAGE_KEY, JSON.stringify(appState));
+            } catch (e) {
+                console.error("Không thể lưu dữ liệu vào localStorage:", e);
+            }
+        }
+
+        // =========================================================================
+        // 3. TIỆN ÍCH HIGHLIGHT CÚ PHÁP C++ & TOAST THÔNG BÁO
+        // =========================================================================
+        function highlightCPP(codeStr) {
+            // Escape HTML trước
+            let html = codeStr
+                .replace(/&/g, "&amp;")
+                .replace(/</g, "&lt;")
+                .replace(/>/g, "&gt;");
+
+            // Tách comment để không bị regex từ khóa đè lên
+            const comments = [];
+            html = html.replace(/(\/\/.*)/g, (match) => {
+                comments.push(match);
+                return `__CMT_${comments.length - 1}__`;
+            });
+
+            // Highlight chuỗi & thư viện <...>
+            html = html.replace(/(&lt;[a-zA-Z0-9_.]+\.h&gt;|"[^"]*")/g, '<span class="cpp-str">$1</span>');
+            // Highlight từ khóa kiểu dữ liệu & tiền xử lý
+            html = html.replace(/\b(#include|#define|void|int|float|long|bool|const)\b/g, '<span class="cpp-kw">$1</span>');
+            // Highlight từ khóa điều khiển
+            html = html.replace(/\b(if|else|for|while|return)\b/g, '<span class="cpp-ctrl">$1</span>');
+            // Highlight đối tượng thư viện
+            html = html.replace(/\b(Servo|Serial)\b/g, '<span class="cpp-type">$1</span>');
+            // Highlight hàm phổ biến
+            html = html.replace(/\b(setup|loop|pinMode|digitalWrite|digitalRead|delay|delayMicroseconds|pulseIn|attach|write|begin|print|println)\b/g, '<span class="cpp-func">$1</span>');
+            // Highlight hằng số & số
+            html = html.replace(/\b(HIGH|LOW|OUTPUT|INPUT|INPUT_PULLUP|true|false|\d+(\.\d+)?)\b/g, '<span class="cpp-num">$1</span>');
+
+            // Khôi phục comment
+            comments.forEach((cmt, idx) => {
+                html = html.replace(`__CMT_${idx}__`, `<span class="cpp-cmt">${cmt}</span>`);
+            });
+
+            return html;
+        }
+
+        function showToast(message, type = "info") {
+            const container = document.getElementById("toast-container");
+            const toast = document.createElement("div");
+            const colors = {
+                success: "bg-emerald-900/95 border-emerald-500 text-emerald-100",
+                error: "bg-red-900/95 border-red-500 text-red-100",
+                info: "bg-slate-800/95 border-cyan-500 text-cyan-100"
+            };
+            const icons = {
+                success: "fa-circle-check text-emerald-400",
+                error: "fa-circle-exclamation text-red-400",
+                info: "fa-circle-info text-cyan-400"
+            };
+            toast.className = `border ${colors[type]} px-4 py-3 rounded-xl shadow-xl flex items-center gap-3 text-sm font-medium pointer-events-auto transform transition-all duration-300 translate-y-2 opacity-0`;
+            toast.innerHTML = `<i class="fa-solid ${icons[type]}"></i><span>${message}</span>`;
+            container.appendChild(toast);
+
+            requestAnimationFrame(() => {
+                toast.classList.remove("translate-y-2", "opacity-0");
+            });
+
+            setTimeout(() => {
+                toast.classList.add("opacity-0", "translate-y-2");
+                setTimeout(() => toast.remove(), 300);
+            }, 3000);
+        }
+
+        function copySampleCode(btn) {
+            const lesson = LESSONS_DATA.find(l => l.id === appState.currentLessonId);
+            if (!lesson) return;
+            const textarea = document.createElement("textarea");
+            textarea.value = lesson.theory.sampleCode;
+            document.body.appendChild(textarea);
+            textarea.select();
+            document.execCommand("copy");
+            document.body.removeChild(textarea);
+
+            const originalHTML = btn.innerHTML;
+            btn.innerHTML = `<i class="fa-solid fa-check text-emerald-400"></i> Đã chép!`;
+            showToast("Đã sao chép code mẫu vào bộ nhớ tạm!", "success");
+            setTimeout(() => { btn.innerHTML = originalHTML; }, 2000);
+        }
+
+        // =========================================================================
+        // 4. RENDER GIAO DIỆN CHÍNH (SIDEBAR, LÝ THUYẾT, BÀI TEST)
+        // =========================================================================
+        function renderSidebar() {
+            const nav = document.getElementById("lesson-nav");
+            let completedCount = 0;
+
+            nav.innerHTML = LESSONS_DATA.map(lesson => {
+                const isActive = lesson.id === appState.currentLessonId;
+                const res = appState.results[lesson.id];
+                const isDone = res && res.submitted;
+                if (isDone) completedCount++;
+
+                let statusBadge = `<span class="text-[11px] text-gray-500 font-mono">Chưa làm</span>`;
+                if (isDone) {
+                    const pct = Math.round((res.score / res.maxScore) * 100);
+                    const badgeColor = pct >= 75 ? "bg-emerald-950 text-emerald-400 border-emerald-700/60" : (pct >= 50 ? "bg-amber-950 text-amber-400 border-amber-700/60" : "bg-red-950 text-red-400 border-red-700/60");
+                    statusBadge = `<span class="px-1.5 py-0.5 rounded border text-[11px] font-mono font-bold ${badgeColor}">${res.score}/${res.maxScore}</span>`;
+                }
+
+                return `
+                    <button onclick="selectLesson(${lesson.id})" class="w-full text-left p-3 rounded-xl border transition flex items-start justify-between gap-2 ${isActive ? 'bg-vscode-active border-cyan-500/60 shadow-md' : 'bg-vscode-bg/60 border-transparent hover:bg-vscode-active/60 hover:border-vscode-border'}">
+                        <div class="flex items-start gap-2.5 min-w-0">
+                            <div class="mt-0.5 w-5 h-5 rounded-full flex items-center justify-center text-xs shrink-0 ${isDone ? 'bg-emerald-600 text-white' : (isActive ? 'bg-cyan-600 text-white' : 'bg-gray-700 text-gray-300')}">
+                                ${isDone ? '<i class="fa-solid fa-check text-[10px]"></i>' : lesson.id}
+                            </div>
+                            <div class="truncate">
+                                <div class="text-sm font-semibold ${isActive ? 'text-white' : 'text-gray-200'} truncate">${lesson.shortTitle}</div>
+                                <div class="text-[11px] text-gray-400 truncate mt-0.5">${lesson.skillName.replace(/^\d+\.\s*/, '')}</div>
+                            </div>
+                        </div>
+                        <div class="shrink-0 mt-0.5">${statusBadge}</div>
+                    </button>
+                `;
+            }).join("");
+
+            // Cập nhật thanh tiến độ tổng
+            const percent = Math.round((completedCount / LESSONS_DATA.length) * 100);
+            document.getElementById("overall-progress-bar").style.width = `${percent}%`;
+            document.getElementById("overall-score-text").textContent = `${completedCount}/${LESSONS_DATA.length} bài (${percent}%)`;
+            document.getElementById("total-progress-badge").textContent = `${completedCount}/${LESSONS_DATA.length}`;
+
+            // Cập nhật thông tin học sinh trên Header
+            const infoEl = document.getElementById("header-student-info");
+            if (appState.studentName) {
+                infoEl.textContent = `${appState.studentName}${appState.studentClass ? ' - ' + appState.studentClass : ''}`;
+            } else {
+                infoEl.textContent = "Nhập tên học sinh";
+            }
+        }
+
+        function renderLessonHeader(lesson) {
+            const headerEl = document.getElementById("lesson-header");
+            headerEl.innerHTML = `
+                <div class="flex flex-wrap items-center gap-2 mb-2">
+                    <span class="px-2.5 py-0.5 rounded-md bg-blue-950 border border-blue-700/50 text-blue-300 text-xs font-semibold">
+                        Chủ đề ${lesson.id} / ${LESSONS_DATA.length}
+                    </span>
+                    <span class="px-2.5 py-0.5 rounded-md bg-vscode-sidebar border border-vscode-border text-gray-300 text-xs">
+                        <i class="fa-solid fa-microchip text-cyan-400 mr-1"></i> ${lesson.hardware.join(" • ")}
+                    </span>
+                </div>
+                <h2 class="text-xl sm:text-2xl font-extrabold text-white tracking-tight">${lesson.title}</h2>
+                <p class="text-sm text-gray-400 mt-1">${lesson.subtitle}</p>
+            `;
+            document.getElementById("tab-test-badge").textContent = `${lesson.questions.length} câu`;
+        }
+
+        function renderTheoryTab(lesson) {
+            const container = document.getElementById("content-theory");
+            const summaryCards = lesson.theory.summary.map(item => `
+                <div class="bg-vscode-sidebar border border-vscode-border rounded-xl p-5">
+                    <h3 class="text-base font-bold text-cyan-400 mb-2">${item.heading}</h3>
+                    <div class="text-sm text-gray-200 leading-relaxed">${item.text}</div>
+                </div>
+            `).join("");
+
+            container.innerHTML = `
+                <div class="space-y-4">
+                    ${summaryCards}
+                </div>
+
+                <!-- Sơ đồ trực quan -->
+                <div>
+                    <h3 class="text-sm font-bold text-gray-300 uppercase tracking-wider mb-2.5 flex items-center gap-2">
+                        <i class="fa-solid fa-diagram-project text-emerald-400"></i> Sơ đồ nối dây & Nguyên lý hoạt động
+                    </h3>
+                    ${lesson.theory.diagramHTML}
+                </div>
+
+                <!-- Code mẫu chuẩn PlatformIO -->
+                <div class="bg-[#18181b] border border-vscode-border rounded-xl overflow-hidden shadow-lg">
+                    <div class="bg-[#252526] px-4 py-2.5 border-b border-vscode-border flex items-center justify-between">
+                        <div class="flex items-center gap-2">
+                            <span class="w-3 h-3 rounded-full bg-red-500"></span>
+                            <span class="w-3 h-3 rounded-full bg-amber-500"></span>
+                            <span class="w-3 h-3 rounded-full bg-emerald-500"></span>
+                            <span class="ml-2 text-xs font-mono text-gray-300">src/main.cpp (Code mẫu chuẩn PlatformIO)</span>
+                        </div>
+                        <button onclick="copySampleCode(this)" class="text-xs bg-vscode-active hover:bg-gray-600 text-gray-200 px-3 py-1 rounded-md flex items-center gap-1.5 transition">
+                            <i class="fa-regular fa-copy"></i> Sao chép code
+                        </button>
+                    </div>
+                    <pre class="p-4 text-xs sm:text-sm font-mono overflow-x-auto leading-relaxed text-gray-200"><code>${highlightCPP(lesson.theory.sampleCode)}</code></pre>
+                </div>
+
+                <!-- Nút chuyển sang làm Bài Test -->
+                <div class="flex justify-end pt-2">
+                    <button onclick="switchTab('test')" class="bg-gradient-to-r from-blue-600 to-cyan-600 hover:from-blue-500 hover:to-cyan-500 text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-blue-950/50 flex items-center gap-2 transition transform hover:-translate-y-0.5">
+                        <span>Đã hiểu lý thuyết! Làm Bài Test Tư duy</span>
+                        <i class="fa-solid fa-arrow-right"></i>
+                    </button>
+                </div>
+            `;
+        }
+
+        function renderTestTab(lesson) {
+            const container = document.getElementById("content-test");
+            const savedResult = appState.results[lesson.id];
+            const isSubmitted = savedResult && savedResult.submitted;
+            const userAns = (savedResult && savedResult.userAnswers) ? savedResult.userAnswers : {};
+
+            let resultBannerHTML = "";
+            if (isSubmitted) {
+                const pct = Math.round((savedResult.score / savedResult.maxScore) * 100);
+                const isPass = pct >= 75;
+                resultBannerHTML = `
+                    <div class="p-5 rounded-xl border ${isPass ? 'bg-emerald-950/40 border-emerald-500/60' : 'bg-amber-950/40 border-amber-500/60'} flex flex-wrap items-center justify-between gap-4">
+                        <div class="flex items-center gap-3.5">
+                            <div class="w-12 h-12 rounded-xl flex items-center justify-center text-xl font-bold ${isPass ? 'bg-emerald-600 text-white' : 'bg-amber-600 text-white'}">
+                                ${savedResult.score}/${savedResult.maxScore}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-white text-base">${isPass ? 'Xuất sắc! Em đã nắm vững tư duy bài này.' : 'Cần cố gắng thêm! Hãy xem kỹ giải thích bên dưới.'}</h4>
+                                <p class="text-xs text-gray-300 mt-0.5">Tỷ lệ chính xác: <strong class="font-mono text-white">${pct}%</strong>. Em có thể bấm "Làm lại bài này" để cải thiện điểm số.</p>
+                            </div>
+                        </div>
+                        <div class="flex items-center gap-2">
+                            <button onclick="retakeCurrentTest()" class="px-4 py-2 rounded-lg bg-vscode-sidebar hover:bg-vscode-active border border-vscode-border text-xs sm:text-sm font-semibold text-gray-200 transition">
+                                <i class="fa-solid fa-rotate-right mr-1"></i> Làm lại bài này
+                            </button>
+                            ${lesson.id < LESSONS_DATA.length ? `
+                                <button onclick="selectLesson(${lesson.id + 1})" class="px-4 py-2 rounded-lg bg-cyan-600 hover:bg-cyan-500 text-xs sm:text-sm font-semibold text-white transition">
+                                    Bài tiếp theo <i class="fa-solid fa-arrow-right ml-1"></i>
+                                </button>
+                            ` : `
+                                <button onclick="openReportModal()" class="px-4 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-xs sm:text-sm font-semibold text-white transition">
+                                    Xem Báo cáo Tổng kết <i class="fa-solid fa-award ml-1"></i>
+                                </button>
+                            `}
+                        </div>
+                    </div>
+                `;
+            }
+
+            const questionsHTML = lesson.questions.map((q, qIdx) => {
+                let bodyHTML = "";
+                let qStatusBadge = "";
+
+                if (q.type === "mcq" || q.type === "debug") {
+                    const selectedIdx = userAns[q.id];
+                    const isCorrect = isSubmitted && selectedIdx === q.correct;
+
+                    if (isSubmitted) {
+                        qStatusBadge = isCorrect
+                            ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-500 text-emerald-400 text-xs font-bold"><i class="fa-solid fa-check mr-1"></i>Đúng (+1)</span>`
+                            : `<span class="px-2.5 py-0.5 rounded-full bg-red-950 border border-red-500 text-red-400 text-xs font-bold"><i class="fa-solid fa-xmark mr-1"></i>Sai (0)</span>`;
+                    }
+
+                    // Nếu là câu hỏi Debug, hiển thị khối code có đánh số dòng
+                    let buggyCodeHTML = "";
+                    if (q.type === "debug" && q.buggyCode) {
+                        const linesHTML = q.buggyCode.map(item => `
+                            <div class="flex hover:bg-white/5 px-2 py-0.5 rounded">
+                                <span class="w-7 text-gray-500 select-none text-right pr-3 border-r border-gray-700 mr-3">${item.line}</span>
+                                <span class="whitespace-pre">${highlightCPP(item.code)}</span>
+                            </div>
+                        `).join("");
+                        buggyCodeHTML = `
+                            <div class="my-3 bg-[#18181b] border border-red-900/50 rounded-lg p-3 font-mono text-xs sm:text-sm overflow-x-auto">
+                                <div class="text-[11px] text-red-400 font-sans font-semibold mb-1.5 flex items-center gap-1.5">
+                                    <i class="fa-solid fa-bug"></i> Mã nguồn đang gặp lỗi:
+                                </div>
+                                ${linesHTML}
+                            </div>
+                        `;
+                    }
+
+                    const optionsHTML = q.options.map((opt, optIdx) => {
+                        let optStyle = "bg-vscode-bg border-vscode-border hover:border-gray-500 text-gray-200";
+                        let iconHTML = `<span class="w-6 h-6 rounded-full border border-gray-600 flex items-center justify-center text-xs font-mono shrink-0">${String.fromCharCode(65 + optIdx)}</span>`;
+
+                        if (!isSubmitted) {
+                            if (selectedIdx === optIdx) {
+                                optStyle = "bg-blue-950/60 border-cyan-400 text-white ring-1 ring-cyan-400";
+                                iconHTML = `<span class="w-6 h-6 rounded-full bg-cyan-500 text-black font-bold flex items-center justify-center text-xs font-mono shrink-0">${String.fromCharCode(65 + optIdx)}</span>`;
+                            }
+                        } else {
+                            if (optIdx === q.correct) {
+                                optStyle = "bg-emerald-950/50 border-emerald-500 text-emerald-200";
+                                iconHTML = `<span class="w-6 h-6 rounded-full bg-emerald-500 text-black font-bold flex items-center justify-center text-xs shrink-0"><i class="fa-solid fa-check"></i></span>`;
+                            } else if (selectedIdx === optIdx && optIdx !== q.correct) {
+                                optStyle = "bg-red-950/50 border-red-500 text-red-200";
+                                iconHTML = `<span class="w-6 h-6 rounded-full bg-red-500 text-white font-bold flex items-center justify-center text-xs shrink-0"><i class="fa-solid fa-xmark"></i></span>`;
+                            } else {
+                                optStyle = "bg-vscode-bg/50 border-vscode-border text-gray-500 opacity-70";
+                            }
+                        }
+
+                        return `
+                            <div onclick="${isSubmitted ? '' : `selectMCQOption('${q.id}', ${optIdx})`}" class="p-3.5 rounded-xl border ${optStyle} flex items-center gap-3 transition ${isSubmitted ? 'cursor-default' : 'cursor-pointer'}">
+                                ${iconHTML}
+                                <div class="text-xs sm:text-sm leading-snug">${opt}</div>
+                            </div>
+                        `;
+                    }).join("");
+
+                    bodyHTML = `${buggyCodeHTML}<div class="space-y-2.5 mt-3">${optionsHTML}</div>`;
+                } else if (q.type === "fill") {
+                    const savedBlanks = Array.isArray(userAns[q.id]) ? userAns[q.id] : [];
+                    let allBlanksCorrect = true;
+
+                    // Xây dựng code có chèn ô input
+                    let renderedCode = highlightCPP(q.codeTemplate);
+                    q.blanks.forEach((blank, bIdx) => {
+                        const val = savedBlanks[bIdx] || "";
+                        const isBlankRight = blank.answer.some(ans => ans.toLowerCase() === val.trim().toLowerCase());
+                        if (!isBlankRight) allBlanksCorrect = false;
+
+                        let extraClass = "";
+                        let hintSpan = "";
+                        if (isSubmitted) {
+                            extraClass = isBlankRight ? "code-blank-correct" : "code-blank-wrong";
+                            if (!isBlankRight) {
+                                hintSpan = `<span class="ml-1.5 text-xs font-sans bg-emerald-950 text-emerald-300 border border-emerald-600 px-1.5 py-0.5 rounded">Đáp án: <code>${blank.answer[0]}</code></span>`;
+                            }
+                        }
+
+                        const inputTag = `<input type="text" data-qid="${q.id}" data-bidx="${bIdx}" value="${val.replace(/"/g, '&quot;')}" placeholder="${blank.placeholder}" ${isSubmitted ? 'disabled' : ''} oninput="updateFillInput('${q.id}', ${bIdx}, this.value)" class="code-blank-input ${extraClass} w-36 sm:w-44 my-0.5">${hintSpan}`;
+                        renderedCode = renderedCode.replace(`{{BLANK_${bIdx}}}`, inputTag);
+                    });
+
+                    if (isSubmitted) {
+                        qStatusBadge = allBlanksCorrect
+                            ? `<span class="px-2.5 py-0.5 rounded-full bg-emerald-950 border border-emerald-500 text-emerald-400 text-xs font-bold"><i class="fa-solid fa-check mr-1"></i>Đúng (+1)</span>`
+                            : `<span class="px-2.5 py-0.5 rounded-full bg-red-950 border border-red-500 text-red-400 text-xs font-bold"><i class="fa-solid fa-xmark mr-1"></i>Chưa chính xác (0)</span>`;
+                    }
+
+                    bodyHTML = `
+                        <div class="mt-3 bg-[#18181b] border border-vscode-border rounded-xl p-4 font-mono text-xs sm:text-sm overflow-x-auto leading-loose">
+                            <pre class="whitespace-pre-wrap">${renderedCode}</pre>
+                        </div>
+                        <p class="text-[11px] text-gray-400 mt-2"><i class="fa-solid fa-keyboard mr-1"></i> Gợi ý: Nhập chính xác từ khóa hoặc ký hiệu C++ vào các ô màu xanh (phân biệt chữ HOA/thường đối với hằng số như <code>OUTPUT</code>, <code>HIGH</code>).</p>
+                    `;
+                }
+
+                // Khối giải thích sau khi nộp bài
+                const explanationHTML = isSubmitted ? `
+                    <div class="mt-4 p-3.5 rounded-xl bg-blue-950/30 border border-blue-800/50 text-xs sm:text-sm text-blue-100 flex items-start gap-2.5">
+                        <i class="fa-solid fa-lightbulb text-amber-400 mt-0.5 shrink-0"></i>
+                        <div><strong class="text-cyan-300">Giải thích tư duy:</strong> ${q.explanation}</div>
+                    </div>
+                ` : "";
+
+                return `
+                    <div class="bg-vscode-sidebar border border-vscode-border rounded-2xl p-5 shadow-sm">
+                        <div class="flex flex-wrap items-center justify-between gap-2 mb-3">
+                            <div class="flex items-center gap-2">
+                                <span class="px-2.5 py-0.5 rounded-md bg-vscode-active text-cyan-400 font-mono text-xs font-bold">Câu ${qIdx + 1}</span>
+                                <span class="text-xs font-semibold text-gray-400">${q.tag}</span>
+                            </div>
+                            ${qStatusBadge}
+                        </div>
+                        <div class="text-sm sm:text-base text-gray-100 font-medium leading-relaxed">${q.prompt}</div>
+                        ${bodyHTML}
+                        ${explanationHTML}
+                    </div>
+                `;
+            }).join("");
+
+            const submitSectionHTML = !isSubmitted ? `
+                <div class="bg-vscode-sidebar border border-vscode-border rounded-2xl p-5 flex flex-wrap items-center justify-between gap-4">
+                    <div class="text-xs sm:text-sm text-gray-300">
+                        <i class="fa-solid fa-circle-info text-cyan-400 mr-1.5"></i>
+                        Kiểm tra kỹ các câu trả lời trước khi nộp để hệ thống phân tích năng lực tư duy của em.
+                    </div>
+                    <button onclick="submitCurrentTest()" class="w-full sm:w-auto bg-gradient-to-r from-emerald-600 to-teal-500 hover:from-emerald-500 hover:to-teal-400 text-white font-bold px-7 py-3 rounded-xl shadow-lg shadow-emerald-950/50 flex items-center justify-center gap-2 transition transform hover:-translate-y-0.5">
+                        <i class="fa-solid fa-paper-plane"></i>
+                        <span>Nộp bài & Chấm điểm</span>
+                    </button>
+                </div>
+            ` : "";
+
+            container.innerHTML = `
+                ${resultBannerHTML}
+                <div class="space-y-5">${questionsHTML}</div>
+                ${submitSectionHTML}
+            `;
+        }
+
+        // =========================================================================
+        // 5. TƯƠNG TÁC NGƯỜI DÙNG & CHẤM ĐIỂM TỰ ĐỘNG
+        // =========================================================================
+        function selectLesson(id) {
+            appState.currentLessonId = id;
+            saveState();
+            renderAll();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            // Đóng sidebar trên mobile nếu đang mở
+            const sidebar = document.getElementById("sidebar");
+            if (!sidebar.classList.contains("-translate-x-full")) {
+                toggleMobileSidebar();
+            }
+        }
+
+        function switchTab(tabName) {
+            appState.currentTab = tabName;
+            saveState();
+
+            const btnTheory = document.getElementById("tab-btn-theory");
+            const btnTest = document.getElementById("tab-btn-test");
+            const contentTheory = document.getElementById("content-theory");
+            const contentTest = document.getElementById("content-test");
+
+            if (tabName === "theory") {
+                btnTheory.className = "flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition bg-vscode-accent text-white shadow";
+                btnTest.className = "flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition text-gray-400 hover:text-white hover:bg-vscode-active/50";
+                contentTheory.classList.remove("hidden");
+                contentTest.classList.add("hidden");
+            } else {
+                btnTest.className = "flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition bg-vscode-accent text-white shadow";
+                btnTheory.className = "flex-1 py-2.5 px-4 rounded-lg font-semibold text-sm flex items-center justify-center gap-2 transition text-gray-400 hover:text-white hover:bg-vscode-active/50";
+                contentTest.classList.remove("hidden");
+                contentTheory.classList.add("hidden");
+            }
+        }
+
+        function ensureLessonDraft(lessonId) {
+            if (!appState.results[lessonId]) {
+                appState.results[lessonId] = {
+                    submitted: false,
+                    score: 0,
+                    maxScore: 0,
+                    userAnswers: {}
+                };
+            }
+        }
+
+        function selectMCQOption(questionId, optionIndex) {
+            const lessonId = appState.currentLessonId;
+            ensureLessonDraft(lessonId);
+            if (appState.results[lessonId].submitted) return;
+
+            appState.results[lessonId].userAnswers[questionId] = optionIndex;
+            saveState();
+            const lesson = LESSONS_DATA.find(l => l.id === lessonId);
+            renderTestTab(lesson);
+        }
+
+        function updateFillInput(questionId, blankIndex, value) {
+            const lessonId = appState.currentLessonId;
+            ensureLessonDraft(lessonId);
+            if (appState.results[lessonId].submitted) return;
+
+            if (!Array.isArray(appState.results[lessonId].userAnswers[questionId])) {
+                appState.results[lessonId].userAnswers[questionId] = [];
+            }
+            appState.results[lessonId].userAnswers[questionId][blankIndex] = value;
+            saveState();
+        }
+
+        function submitCurrentTest() {
+            const lessonId = appState.currentLessonId;
+            const lesson = LESSONS_DATA.find(l => l.id === lessonId);
+            ensureLessonDraft(lessonId);
+
+            const userAns = appState.results[lessonId].userAnswers;
+
+            // Kiểm tra xem học sinh đã làm hết các câu chưa
+            let unanswered = 0;
+            lesson.questions.forEach(q => {
+                if (q.type === "mcq" || q.type === "debug") {
+                    if (userAns[q.id] === undefined) unanswered++;
+                } else if (q.type === "fill") {
+                    const arr = userAns[q.id] || [];
+                    for (let i = 0; i < q.blanks.length; i++) {
+                        if (!arr[i] || arr[i].trim() === "") {
+                            unanswered++;
+                            break;
+                        }
+                    }
+                }
+            });
+
+            if (unanswered > 0) {
+                showToast(`Em còn ${unanswered} câu chưa hoàn thành. Hãy điền đủ trước khi nộp nhé!`, "error");
+                return;
+            }
+
+            // Chấm điểm chi tiết
+            let score = 0;
+            const maxScore = lesson.questions.length;
+
+            lesson.questions.forEach(q => {
+                if (q.type === "mcq" || q.type === "debug") {
+                    if (userAns[q.id] === q.correct) score++;
+                } else if (q.type === "fill") {
+                    const arr = userAns[q.id] || [];
+                    const isAllRight = q.blanks.every((b, idx) => {
+                        const val = (arr[idx] || "").trim();
+                        return b.answer.some(ans => ans === val);
+                    });
+                    if (isAllRight) score++;
+                }
+            });
+
+            appState.results[lessonId].submitted = true;
+            appState.results[lessonId].score = score;
+            appState.results[lessonId].maxScore = maxScore;
+            saveState();
+
+            renderAll();
+            window.scrollTo({ top: 0, behavior: "smooth" });
+            showToast(`Đã chấm điểm xong! Kết quả: ${score}/${maxScore} câu đúng.`, score === maxScore ? "success" : "info");
+        }
+
+        function retakeCurrentTest() {
+            const lessonId = appState.currentLessonId;
+            appState.results[lessonId] = {
+                submitted: false,
+                score: 0,
+                maxScore: 0,
+                userAnswers: {}
+            };
+            saveState();
+            renderAll();
+            showToast("Đã làm mới bài test. Em hãy thử sức lại nhé!", "info");
+        }
+
+        // =========================================================================
+        // 6. BÁO CÁO ĐÁNH GIÁ TƯ DUY LẬP TRÌNH TỔNG HỢP & MODAL
+        // =========================================================================
+        function openReportModal() {
+            const modal = document.getElementById("report-modal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+
+            // Điền thông tin học sinh & ngày tháng
+            document.getElementById("rep-name").textContent = appState.studentName || "Học sinh (Chưa nhập tên)";
+            document.getElementById("rep-class").textContent = appState.studentClass || "Chưa nhập lớp";
+            const now = new Date();
+            document.getElementById("rep-date").textContent = now.toLocaleDateString("vi-VN") + " " + now.toLocaleTimeString("vi-VN", { hour: '2-digit', minute: '2-digit' });
+
+            // Tính toán điểm từng nhóm năng lực
+            let totalEarned = 0;
+            let totalPossible = 0;
+            let completedLessons = 0;
+
+            const strongSkills = [];
+            const weakSkills = [];
+            const unattemptedSkills = [];
+
+            const skillsHTML = LESSONS_DATA.map(lesson => {
+                const res = appState.results[lesson.id];
+                const maxQ = lesson.questions.length;
+                totalPossible += maxQ;
+
+                let earned = 0;
+                let pct = 0;
+                let statusText = "Chưa kiểm tra";
+                let barColor = "bg-gray-600";
+
+                if (res && res.submitted) {
+                    completedLessons++;
+                    earned = res.score;
+                    totalEarned += earned;
+                    pct = Math.round((earned / maxQ) * 100);
+                    statusText = `${earned}/${maxQ} câu (${pct}%)`;
+
+                    if (pct >= 75) {
+                        barColor = "bg-emerald-500";
+                        strongSkills.push(lesson.skillName);
+                    } else if (pct >= 50) {
+                        barColor = "bg-amber-500";
+                        weakSkills.push({ name: lesson.skillName, tip: getSkillAdvice(lesson.id) });
+                    } else {
+                        barColor = "bg-red-500";
+                        weakSkills.push({ name: lesson.skillName, tip: getSkillAdvice(lesson.id) });
+                    }
+                } else {
+                    unattemptedSkills.push(lesson.shortTitle);
+                }
+
+                return `
+                    <div>
+                        <div class="flex justify-between text-xs sm:text-sm mb-1">
+                            <span class="font-semibold text-gray-200">${lesson.skillName}</span>
+                            <span class="font-mono font-bold ${pct >= 75 ? 'text-emerald-400' : (res && res.submitted ? 'text-amber-400' : 'text-gray-500')}">${statusText}</span>
+                        </div>
+                        <div class="w-full bg-gray-800 rounded-full h-2.5 overflow-hidden">
+                            <div class="${barColor} h-2.5 rounded-full transition-all duration-500" style="width: ${pct}%"></div>
+                        </div>
+                    </div>
+                `;
+            }).join("");
+
+            document.getElementById("rep-skills-bars").innerHTML = skillsHTML;
+
+            // Tính điểm thang 100
+            const score100 = totalPossible > 0 ? Math.round((totalEarned / totalPossible) * 100) : 0;
+            document.getElementById("rep-total-score").textContent = `${score100} / 100`;
+            document.getElementById("rep-completed-lessons").textContent = `Đã hoàn thành ${completedLessons}/${LESSONS_DATA.length} chủ đề`;
+
+            // Xếp loại năng lực
+            const rankBadge = document.getElementById("rep-rank-badge");
+            const rankTitle = document.getElementById("rep-rank-title");
+            const rankDesc = document.getElementById("rep-rank-desc");
+
+            if (completedLessons === 0) {
+                rankBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-gray-700 text-gray-300";
+                rankBadge.textContent = "Chưa có dữ liệu";
+                rankTitle.textContent = "Sẵn sàng khám phá ESP32!";
+                rankDesc.textContent = "Em chưa nộp bài test nào. Hãy hoàn thành các bài test từ Bài 1 đến Bài 5 để hệ thống đánh giá năng lực lập trình nhúng của em.";
+            } else if (score100 >= 85 && completedLessons === 5) {
+                rankBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-600 text-white";
+                rankBadge.textContent = "XUẤT SẮC (MAKER PRO)";
+                rankTitle.textContent = "Sẵn sàng tự thiết kế & lập trình dự án IoT/Robotics!";
+                rankDesc.textContent = "Em nắm rất vững cấu trúc C/C++ trên PlatformIO, tư duy biến, rẽ nhánh, vòng lặp và biết cách đóng gói hàm khoa học. Hoàn toàn đủ năng lực làm các dự án sáng tạo KHKT.";
+            } else if (score100 >= 65) {
+                rankBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-cyan-600 text-white";
+                rankTitle.textContent = "KHÁ TỐT (JUNIOR DEVELOPER)";
+                rankDesc.textContent = "Em đã hiểu cách điều khiển cảm biến và động cơ trên ESP32. Hãy ôn lại một vài điểm nhỏ được gợi ý bên dưới để đạt độ chính xác tuyệt đối khi nạp mạch thực tế.";
+            } else {
+                rankBadge.className = "px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-600 text-white";
+                rankTitle.textContent = "CẦN CỦNG CỐ NỀN TẢNG";
+                rankDesc.textContent = "Em đã bước đầu tiếp cận lập trình ESP32 nhưng còn nhầm lẫn ở một số cú pháp C++ hoặc tư duy điều kiện/vòng lặp. Hãy đọc kỹ phần giải thích từng câu sai và làm lại bài test nhé!";
+            }
+
+            // Tạo nhận xét cá nhân hóa
+            const feedbackItems = [];
+            if (strongSkills.length > 0) {
+                feedbackItems.push(`<div class="flex items-start gap-2"><i class="fa-solid fa-circle-check text-emerald-400 mt-1"></i><span><strong>Điểm mạnh nổi bật:</strong> Em làm rất tốt phần <em>${strongSkills.join(", ")}</em>.</span></div>`);
+            }
+            if (weakSkills.length > 0) {
+                weakSkills.forEach(w => {
+                    feedbackItems.push(`<div class="flex items-start gap-2"><i class="fa-solid fa-triangle-exclamation text-amber-400 mt-1"></i><span><strong>Cần ôn tập (${w.name}):</strong> ${w.tip}</span></div>`);
+                });
+            }
+            if (unattemptedSkills.length > 0) {
+                feedbackItems.push(`<div class="flex items-start gap-2"><i class="fa-solid fa-hourglass-half text-cyan-400 mt-1"></i><span><strong>Chủ đề chưa hoàn thành:</strong> Em hãy làm tiếp bài test của <em>${unattemptedSkills.join(", ")}</em> để có bức tranh đánh giá toàn diện nhất.</span></div>`);
+            }
+
+            document.getElementById("rep-feedback-list").innerHTML = feedbackItems.join("");
+        }
+
+        function getSkillAdvice(lessonId) {
+            const advices = {
+                1: "Chú ý sự khác biệt giữa <code>setup()</code> (chạy 1 lần) và <code>loop()</code> (lặp vô tận), đồng thời luôn nhớ <code>#include &lt;Arduino.h&gt;</code> trong PlatformIO.",
+                2: "Ôn lại cơ chế kéo lên <code>INPUT_PULLUP</code> (nhấn nút = <code>LOW</code>) và lưu ý đặt lệnh <code>digitalRead()</code> bên trong <code>loop()</code> để cập nhật liên tục.",
+                3: "Cẩn thận lỗi nhầm dấu gán <code>=</code> với phép so sánh bằng <code>==</code> trong câu lệnh <code>if</code>, và phân biệt rõ toán tử <code>&&</code> (VÀ) với <code>||</code> (HOẶC).",
+                4: "Kiểm tra kỹ điều kiện dừng và bước nhảy (<code>++</code> hay <code>--</code>) trong vòng lặp <code>for</code> để tránh vòng lặp vô tận, nhớ thêm <code>delay()</code> nhỏ cho Servo kịp quay.",
+                5: "Lưu ý kiểu dữ liệu trả về của hàm (<code>float</code> / <code>int</code> khi có <code>return</code>, <code>void</code> khi không trả về) và đặt hàm tự tạo phía trên <code>loop()</code>."
+            };
+            return advices[lessonId] || "";
+        }
+
+        function closeReportModal() {
+            const modal = document.getElementById("report-modal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        // Modal Học sinh
+        function openStudentModal() {
+            document.getElementById("input-student-name").value = appState.studentName;
+            document.getElementById("input-student-class").value = appState.studentClass;
+            const modal = document.getElementById("student-modal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+
+        function closeStudentModal() {
+            const modal = document.getElementById("student-modal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        function saveStudentInfo() {
+            const name = document.getElementById("input-student-name").value.trim();
+            const cls = document.getElementById("input-student-class").value.trim();
+            if (!name) {
+                showToast("Vui lòng nhập Họ và tên học sinh!", "error");
+                return;
+            }
+            appState.studentName = name;
+            appState.studentClass = cls;
+            saveState();
+            renderSidebar();
+            closeStudentModal();
+            showToast("Đã lưu thông tin học sinh!", "success");
+        }
+
+        // Modal Reset
+        function confirmResetProgress() {
+            const modal = document.getElementById("reset-modal");
+            modal.classList.remove("hidden");
+            modal.classList.add("flex");
+        }
+
+        function closeResetModal() {
+            const modal = document.getElementById("reset-modal");
+            modal.classList.add("hidden");
+            modal.classList.remove("flex");
+        }
+
+        function executeResetProgress() {
+            appState.results = {};
+            appState.currentLessonId = 1;
+            appState.currentTab = "theory";
+            saveState();
+            closeResetModal();
+            renderAll();
+            showToast("Đã đặt lại toàn bộ tiến độ học tập!", "info");
+        }
+
+        // Mobile Sidebar Toggle
+        function toggleMobileSidebar() {
+            const sidebar = document.getElementById("sidebar");
+            const overlay = document.getElementById("sidebar-overlay");
+            sidebar.classList.toggle("-translate-x-full");
+            overlay.classList.toggle("hidden");
+        }
+
+        document.getElementById("mobile-menu-btn").addEventListener("click", toggleMobileSidebar);
+
+        // =========================================================================
+        // 7. KHỞI CHẠY ỨNG DỤNG
+        // =========================================================================
+        function renderAll() {
+            const currentLesson = LESSONS_DATA.find(l => l.id === appState.currentLessonId) || LESSONS_DATA[0];
+            renderSidebar();
+            renderLessonHeader(currentLesson);
+            renderTheoryTab(currentLesson);
+            renderTestTab(currentLesson);
+            switchTab(appState.currentTab);
+        }
+
+        window.addEventListener("DOMContentLoaded", () => {
+            loadState();
+            renderAll();
+        });
+    </script>
+</body>
+</html>
